@@ -36,9 +36,9 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-teal-50 to-emerald-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900">
       {/* Header */}
-      <header className="bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 shadow-2xl">
+      <header className="bg-gradient-to-r from-blue-600 to-indigo-600 shadow-2xl border-b border-blue-500/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -56,10 +56,10 @@ export default function Home() {
       {/* Hero Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-12">
-          <h2 className="text-4xl font-extrabold text-gray-900 sm:text-5xl mb-4">
+          <h2 className="text-4xl font-extrabold text-white sm:text-5xl mb-4">
             Plan Your Perfect Trip
           </h2>
-          <p className="text-xl font-bold text-black max-w-3xl mx-auto">
+          <p className="text-xl font-semibold text-gray-300 max-w-3xl mx-auto">
             Get personalized multi-city itineraries with visa guidance, accommodation options,
             activities, and complete day-by-day planning powered by AI.
           </p>
@@ -71,25 +71,25 @@ export default function Home() {
             icon={<MapPin className="h-6 w-6 text-white" />}
             title="Multi-City Planning"
             description="Plan trips across multiple cities with seamless connections"
-            gradient="from-teal-500 to-cyan-500"
+            gradient="from-blue-500 to-indigo-500"
           />
           <FeatureCard
             icon={<Calendar className="h-6 w-6 text-white" />}
             title="Day-by-Day Itinerary"
             description="Detailed daily plans with activities, meals, and transport"
-            gradient="from-emerald-500 to-green-500"
+            gradient="from-purple-500 to-pink-500"
           />
           <FeatureCard
             icon={<Users className="h-6 w-6 text-white" />}
             title="Visa Guidance"
             description="Schengen visa rules and country restrictions included"
-            gradient="from-blue-500 to-indigo-500"
+            gradient="from-cyan-500 to-blue-500"
           />
           <FeatureCard
             icon={<DollarSign className="h-6 w-6 text-white" />}
             title="Budget Options"
             description="Multiple itineraries from budget to premium"
-            gradient="from-amber-500 to-orange-500"
+            gradient="from-green-500 to-emerald-500"
           />
         </div>
 
@@ -104,9 +104,9 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 mt-20">
+      <footer className="bg-slate-900 border-t border-slate-800 mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <p className="text-center font-bold text-black">
+          <p className="text-center font-semibold text-gray-400">
             © 2024 AI Travel Agent. Built with Next.js and Claude AI.
           </p>
         </div>
@@ -127,12 +127,12 @@ function FeatureCard({
   gradient?: string;
 }) {
   return (
-    <div className={`bg-white rounded-xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 border-2 border-transparent hover:border-teal-300`}>
+    <div className="bg-slate-800 rounded-xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 border border-slate-700 hover:border-blue-500/50">
       <div className={`inline-block p-3 rounded-xl bg-gradient-to-br ${gradient || 'from-blue-500 to-purple-500'} mb-4`}>
         {icon}
       </div>
-      <h3 className="font-bold text-gray-900 mb-2 text-lg">{title}</h3>
-      <p className="text-sm font-bold text-black leading-relaxed">{description}</p>
+      <h3 className="font-bold text-white mb-2 text-lg">{title}</h3>
+      <p className="text-sm font-medium text-gray-300 leading-relaxed">{description}</p>
     </div>
   );
 }

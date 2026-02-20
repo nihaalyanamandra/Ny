@@ -195,11 +195,11 @@ export default function TripForm({ onSubmit, loading }: TripFormProps) {
 
       {/* Additional Cities */}
       {additionalCities.map((city, index) => (
-        <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-purple-50 rounded-lg relative">
+        <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-700/50 rounded-lg relative border border-slate-600">
           <button
             type="button"
             onClick={() => removeCity(index)}
-            className="absolute top-2 right-2 text-red-600 hover:text-red-800"
+            className="absolute top-2 right-2 text-red-400 hover:text-red-500"
           >
             <X className="h-5 w-5" />
           </button>
@@ -240,7 +240,7 @@ export default function TripForm({ onSubmit, loading }: TripFormProps) {
       <button
         type="button"
         onClick={addCity}
-        className="w-full flex items-center justify-center space-x-2 px-4 py-3 border-2 border-dashed border-purple-400 rounded-lg text-purple-600 hover:bg-purple-50 transition-colors font-bold"
+        className="w-full flex items-center justify-center space-x-2 px-4 py-3 border-2 border-dashed border-blue-500 rounded-lg text-blue-400 hover:bg-slate-700/50 transition-colors font-semibold"
       >
         <Plus className="h-5 w-5" />
         <span>Add Another City to Visit</span>
@@ -382,7 +382,7 @@ export default function TripForm({ onSubmit, loading }: TripFormProps) {
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 formData.interests.includes(interest)
                   ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 font-bold text-black hover:bg-gray-200'
+                  : 'bg-slate-700 text-gray-200 hover:bg-slate-600 border border-slate-600'
               }`}
             >
               {interest.charAt(0).toUpperCase() + interest.slice(1)}
@@ -403,7 +403,7 @@ export default function TripForm({ onSubmit, loading }: TripFormProps) {
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 formData.accommodationType.includes(type)
                   ? 'bg-purple-600 text-white'
-                  : 'bg-gray-100 font-bold text-black hover:bg-gray-200'
+                  : 'bg-slate-700 text-gray-200 hover:bg-slate-600 border border-slate-600'
               }`}
             >
               {type.charAt(0).toUpperCase() + type.slice(1)}

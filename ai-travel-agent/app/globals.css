@@ -1,21 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #1a1a2e;
+  --foreground: #eaeaea;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Inter', -apple-system, system-ui, sans-serif;
 }
 
 @layer utilities {
@@ -26,22 +19,22 @@ body {
 
 @layer components {
   .btn-primary {
-    @apply bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed;
+    @apply bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-all disabled:bg-gray-600 disabled:cursor-not-allowed shadow-lg hover:shadow-xl;
   }
 
   .btn-secondary {
-    @apply bg-gray-200 text-gray-800 px-6 py-3 rounded-lg font-semibold hover:bg-gray-300 transition-colors;
+    @apply bg-slate-700 text-gray-100 px-6 py-3 rounded-lg font-semibold hover:bg-slate-600 transition-colors border border-slate-600;
   }
 
   .card {
-    @apply bg-white rounded-xl shadow-lg border border-gray-200 p-6;
+    @apply bg-slate-800 rounded-xl shadow-2xl border border-slate-700 p-6;
   }
 
   .input-field {
-    @apply w-full px-4 py-3 border-2 border-teal-400 bg-gradient-to-r from-cyan-50 to-blue-50 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-600 focus:bg-white outline-none transition-all duration-300 font-medium shadow-sm;
+    @apply w-full px-4 py-3 border border-slate-600 bg-slate-900 text-white placeholder-slate-400 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200 font-medium;
   }
 
   .label {
-    @apply block text-sm font-bold text-black mb-2;
+    @apply block text-sm font-semibold text-slate-200 mb-2;
   }
 }

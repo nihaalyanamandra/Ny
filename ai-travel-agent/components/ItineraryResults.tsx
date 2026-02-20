@@ -286,19 +286,73 @@ function DetailedItinerary({
       </div>
 
       {/* Flights */}
-      <div className="card">
-        <div className="flex items-center space-x-2 mb-4">
-          <Plane className="h-5 w-5 text-blue-600" />
-          <h3 className="text-xl font-bold text-gray-900">Flights</h3>
+      <div className="card bg-gradient-to-br from-teal-50 to-cyan-50">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-3">
+            <div className="bg-teal-500 p-3 rounded-xl">
+              <Plane className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h3 className="text-2xl font-bold text-gray-900">Your Flight Options</h3>
+              <p className="text-sm text-gray-600">Best options ranked for your journey</p>
+            </div>
+          </div>
         </div>
 
-        <div className="space-y-4">
-          {itinerary.flights.outbound.map((flight) => (
-            <FlightCard key={flight.id} flight={flight} type="Outbound" />
-          ))}
-          {itinerary.flights.return?.map((flight) => (
-            <FlightCard key={flight.id} flight={flight} type="Return" />
-          ))}
+        {/* Outbound Flights */}
+        <div className="mb-8">
+          <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center space-x-2">
+            <span className="bg-teal-100 text-teal-700 px-3 py-1 rounded-full text-sm">Outbound</span>
+            <span>{itinerary.request.origin.city} → {itinerary.request.destination.city}</span>
+          </h4>
+          <div className="space-y-4">
+            {itinerary.flights.outbound.map((flight, index) => (
+              <div key={flight.id} className="relative">
+                {index === 0 && (
+                  <div className="absolute -top-2 -left-2 bg-yellow-400 text-yellow-900 px-3 py-1 rounded-full text-xs font-bold shadow-lg z-10">
+                    ⭐ Best Option
+                  </div>
+                )}
+                <FlightCard flight={flight} type="Outbound" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Return Flights */}
+        {itinerary.flights.return && itinerary.flights.return.length > 0 && (
+          <div>
+            <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center space-x-2">
+              <span className="bg-cyan-100 text-cyan-700 px-3 py-1 rounded-full text-sm">Return</span>
+              <span>{itinerary.request.returnFrom?.city || itinerary.request.destination.city} → {itinerary.request.origin.city}</span>
+            </h4>
+            <div className="space-y-4">
+              {itinerary.flights.return.map((flight, index) => (
+                <div key={flight.id} className="relative">
+                  {index === 0 && (
+                    <div className="absolute -top-2 -left-2 bg-yellow-400 text-yellow-900 px-3 py-1 rounded-full text-xs font-bold shadow-lg z-10">
+                      ⭐ Best Option
+                    </div>
+                  )}
+                  <FlightCard flight={flight} type="Return" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Travel APIs Note */}
+        <div className="mt-6 p-4 bg-blue-100 border-l-4 border-blue-500 rounded-lg">
+          <div className="flex items-start space-x-3">
+            <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
+            <div>
+              <p className="text-sm font-bold text-blue-900">Flight Prices & Availability</p>
+              <p className="text-xs text-blue-800 mt-1">
+                Prices shown are estimates. Click "Book Flight" to check real-time availability and current rates on airline websites.
+                For API integration, you can use Google Flights API, Amadeus, or Skyscanner API for live pricing.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -333,42 +387,102 @@ function DetailedItinerary({
 }
 
 function FlightCard({ flight, type }: { flight: any; type: string }) {
+  const getBadgeColor = () => {
+    if (flight.stops === 0) return 'bg-green-100 text-green-800';
+    if (flight.stops === 1) return 'bg-yellow-100 text-yellow-800';
+    return 'bg-orange-100 text-orange-800';
+  };
+
+  const getClassColor = () => {
+    if (flight.class === 'business') return 'bg-purple-100 text-purple-800';
+    if (flight.class === 'first') return 'bg-pink-100 text-pink-800';
+    if (flight.class === 'premium economy') return 'bg-blue-100 text-blue-800';
+    return 'bg-gray-100 text-gray-800';
+  };
+
   return (
-    <div className="border border-gray-200 rounded-lg p-4">
-      <div className="flex justify-between items-start mb-2">
-        <div>
-          <p className="text-sm font-bold text-black">{type} Flight</p>
-          <p className="font-semibold text-gray-900">
-            {flight.airline} {flight.flightNumber}
+    <div className="border-2 border-teal-200 rounded-xl p-5 bg-gradient-to-br from-white to-cyan-50 hover:shadow-xl transition-all duration-300 hover:border-teal-400">
+      {/* Header with route */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center space-x-3">
+          <div className="bg-teal-100 p-2 rounded-lg">
+            <Plane className="h-5 w-5 text-teal-600" />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-teal-600 uppercase tracking-wide">{type} Flight</p>
+            <h4 className="text-lg font-bold text-gray-900">
+              {flight.origin.city} → {flight.destination.city}
+            </h4>
+            <p className="text-sm text-gray-600">
+              {flight.airline} {flight.flightNumber}
+            </p>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-3xl font-bold text-teal-600">${flight.price}</p>
+          <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${getClassColor()}`}>
+            {flight.class}
+          </span>
+        </div>
+      </div>
+
+      {/* Flight timeline */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="text-left">
+          <p className="text-2xl font-bold text-gray-900">
+            {format(new Date(flight.departure), 'HH:mm')}
           </p>
+          <p className="text-sm font-bold text-black">{flight.origin.city}</p>
+          <p className="text-xs text-gray-600">{flight.origin.airport}</p>
+          <p className="text-xs text-gray-500">{format(new Date(flight.departure), 'MMM dd, yyyy')}</p>
         </div>
+
+        <div className="flex-1 mx-4">
+          <div className="relative">
+            <div className="h-1 bg-gradient-to-r from-teal-400 to-cyan-400 rounded"></div>
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+              <div className="bg-white px-3 py-1 rounded-full border-2 border-teal-400">
+                <p className="text-xs font-bold text-teal-600">
+                  {Math.floor(flight.duration / 60)}h {flight.duration % 60}m
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="text-center mt-2">
+            <span className={`inline-block px-2 py-1 rounded-full text-xs font-bold ${getBadgeColor()}`}>
+              {flight.stops === 0 ? 'Direct' : `${flight.stops} Stop${flight.stops > 1 ? 's' : ''}`}
+            </span>
+          </div>
+        </div>
+
         <div className="text-right">
-          <p className="text-xl font-bold text-gray-900">${flight.price}</p>
-          <p className="text-sm font-bold text-black">{flight.class}</p>
+          <p className="text-2xl font-bold text-gray-900">
+            {format(new Date(flight.arrival), 'HH:mm')}
+          </p>
+          <p className="text-sm font-bold text-black">{flight.destination.city}</p>
+          <p className="text-xs text-gray-600">{flight.destination.airport}</p>
+          <p className="text-xs text-gray-500">{format(new Date(flight.arrival), 'MMM dd, yyyy')}</p>
         </div>
       </div>
-      <div className="flex items-center justify-between text-sm">
-        <div>
-          <p className="font-semibold">{flight.origin.city}</p>
-          <p className="font-bold text-black">{format(new Date(flight.departure), 'MMM dd, HH:mm')}</p>
-        </div>
-        <div className="text-center">
-          <p className="font-bold text-black">{Math.floor(flight.duration / 60)}h {flight.duration % 60}m</p>
-          <p className="font-bold text-black">{flight.stops} {flight.stops === 1 ? 'stop' : 'stops'}</p>
-        </div>
-        <div className="text-right">
-          <p className="font-semibold">{flight.destination.city}</p>
-          <p className="font-bold text-black">{format(new Date(flight.arrival), 'MMM dd, HH:mm')}</p>
+
+      {/* Baggage info */}
+      <div className="mb-3 p-3 bg-blue-50 rounded-lg">
+        <p className="text-xs font-bold text-gray-700 mb-1">Baggage Allowance</p>
+        <div className="flex gap-4 text-xs">
+          <span className="font-bold text-black">✈️ Cabin: {flight.baggage.cabin}</span>
+          <span className="font-bold text-black">🧳 Checked: {flight.baggage.checked}</span>
         </div>
       </div>
+
+      {/* Booking button */}
       <a
         href={flight.bookingUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="mt-3 flex items-center justify-center space-x-2 text-blue-600 hover:text-blue-700 text-sm"
+        className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 shadow-md hover:shadow-lg"
       >
-        <span>Book on {flight.airline}</span>
-        <ExternalLink className="h-3 w-3" />
+        <span>Book Flight on {flight.airline}</span>
+        <ExternalLink className="h-4 w-4" />
       </a>
     </div>
   );

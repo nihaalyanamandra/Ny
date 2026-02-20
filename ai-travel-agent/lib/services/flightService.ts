@@ -1,10 +1,44 @@
 import { Flight, FlightOption, Location } from '../types';
 import { addHours, addMinutes } from 'date-fns';
 
+/**
+ * FlightService - Handles flight search and pricing
+ *
+ * REAL API INTEGRATION OPTIONS:
+ *
+ * 1. Google Flights API (via Serpapi)
+ *    - URL: https://serpapi.com/google-flights-api
+ *    - Pros: Real-time prices, multiple airlines, easy integration
+ *    - Usage: GET request with origin, destination, dates
+ *
+ * 2. Amadeus Flight API
+ *    - URL: https://developers.amadeus.com/self-service/category/flights
+ *    - Pros: Industry standard, comprehensive data, free tier available
+ *    - Usage: OAuth token + REST API calls
+ *
+ * 3. Skyscanner API
+ *    - URL: https://rapidapi.com/skyscanner/api/skyscanner-flight-search
+ *    - Pros: Price comparison across airlines, popular for travel apps
+ *    - Usage: RapidAPI subscription
+ *
+ * 4. Kiwi.com Tequila API
+ *    - URL: https://tequila.kiwi.com/
+ *    - Pros: Budget flights, multi-city routes
+ *    - Usage: API key + REST calls
+ *
+ * Implementation example:
+ * ```typescript
+ * const response = await fetch(`https://api.amadeus.com/v2/shopping/flight-offers?originLocationCode=${origin}&destinationLocationCode=${dest}&departureDate=${date}&adults=${travelers}`, {
+ *   headers: { 'Authorization': `Bearer ${accessToken}` }
+ * });
+ * const data = await response.json();
+ * ```
+ */
 export class FlightService {
   private static airlines = [
     'American Airlines', 'Delta', 'United', 'KLM', 'Air France',
-    'Lufthansa', 'British Airways', 'Iberia', 'Vueling', 'Ryanair'
+    'Lufthansa', 'British Airways', 'Iberia', 'Vueling', 'Ryanair',
+    'Emirates', 'Qatar Airways', 'Air India', 'Singapore Airlines'
   ];
 
   /**
@@ -16,8 +50,8 @@ export class FlightService {
     date: Date,
     travelers: number = 1
   ): Promise<Flight[]> {
-    // In production, this would call a real flight API
-    // For now, we'll generate realistic mock data
+    // TODO: Replace with real API call
+    // Example: const flights = await this.fetchFromAmadeusAPI(origin, destination, date, travelers);
     return this.generateMockFlights(origin, destination, date, travelers);
   }
 
@@ -114,63 +148,90 @@ export class FlightService {
     const flights: Flight[] = [];
     const basePrice = this.calculateBasePrice(origin, destination);
 
-    // Direct flight
+    // 1. BEST VALUE - Direct flight with major carrier (ranked #1)
     flights.push(this.createFlight(
       origin,
       destination,
       date,
       0,
-      basePrice * 1.2,
+      basePrice * 1.1,
       'economy',
-      travelers
+      travelers,
+      undefined,
+      'morning'
     ));
 
-    // One stop flight (cheaper)
-    flights.push(this.createFlight(
-      origin,
-      destination,
-      date,
-      1,
-      basePrice * 0.8,
-      'economy',
-      travelers
-    ));
-
-    // Budget airline (cheapest, multiple stops)
+    // 2. CHEAPEST - Budget airline with 2 stops
     flights.push(this.createFlight(
       origin,
       destination,
       date,
       2,
-      basePrice * 0.6,
+      basePrice * 0.55,
       'economy',
       travelers,
-      'Ryanair'
+      'Ryanair',
+      'early morning'
     ));
 
-    // Business class
+    // 3. One stop flight - Good balance
+    flights.push(this.createFlight(
+      origin,
+      destination,
+      date,
+      1,
+      basePrice * 0.75,
+      'economy',
+      travelers,
+      undefined,
+      'afternoon'
+    ));
+
+    // 4. Direct evening flight
     flights.push(this.createFlight(
       origin,
       destination,
       date,
       0,
-      basePrice * 3,
-      'business',
-      travelers
+      basePrice * 1.25,
+      'economy',
+      travelers,
+      undefined,
+      'evening'
     ));
 
-    // Premium economy
+    // 5. Premium Economy - More comfort
     flights.push(this.createFlight(
       origin,
       destination,
       date,
       0,
-      basePrice * 1.6,
+      basePrice * 1.5,
       'premium economy',
-      travelers
+      travelers,
+      undefined,
+      'morning'
     ));
 
-    return flights;
+    // 6. Business Class - Luxury option
+    flights.push(this.createFlight(
+      origin,
+      destination,
+      date,
+      0,
+      basePrice * 2.8,
+      'business',
+      travelers,
+      undefined,
+      'morning'
+    ));
+
+    // Sort by value (best options first)
+    return flights.sort((a, b) => {
+      const scoreA = (1000 - a.price) + (a.stops === 0 ? 500 : 0);
+      const scoreB = (1000 - b.price) + (b.stops === 0 ? 500 : 0);
+      return scoreB - scoreA;
+    });
   }
 
   private static createFlight(
@@ -181,7 +242,8 @@ export class FlightService {
     basePrice: number,
     flightClass: 'economy' | 'premium economy' | 'business' | 'first',
     travelers: number,
-    airline?: string
+    airline?: string,
+    timeOfDay?: 'early morning' | 'morning' | 'afternoon' | 'evening'
   ): Flight {
     const selectedAirline = airline || this.airlines[Math.floor(Math.random() * this.airlines.length)];
     const flightNumber = `${this.getAirlineCode(selectedAirline)}${Math.floor(Math.random() * 9000) + 1000}`;
@@ -192,7 +254,18 @@ export class FlightService {
     const duration = baseDuration + (stops * 90); // Add 90 min per stop
 
     const departure = new Date(date);
-    departure.setHours(6 + Math.floor(Math.random() * 18)); // Random time between 6 AM and midnight
+    // Set departure time based on timeOfDay
+    if (timeOfDay === 'early morning') {
+      departure.setHours(5, Math.floor(Math.random() * 60));
+    } else if (timeOfDay === 'morning') {
+      departure.setHours(8 + Math.floor(Math.random() * 3), Math.floor(Math.random() * 60));
+    } else if (timeOfDay === 'afternoon') {
+      departure.setHours(13 + Math.floor(Math.random() * 4), Math.floor(Math.random() * 60));
+    } else if (timeOfDay === 'evening') {
+      departure.setHours(18 + Math.floor(Math.random() * 4), Math.floor(Math.random() * 60));
+    } else {
+      departure.setHours(6 + Math.floor(Math.random() * 18), Math.floor(Math.random() * 60));
+    }
 
     const arrival = addMinutes(departure, duration);
 

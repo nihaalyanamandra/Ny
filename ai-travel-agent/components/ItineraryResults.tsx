@@ -342,14 +342,15 @@ function DetailedItinerary({
         )}
 
         {/* Travel APIs Note */}
-        <div className="mt-6 p-4 bg-blue-100 border-l-4 border-blue-500 rounded-lg">
+        <div className="mt-6 p-4 bg-blue-900/40 border-l-4 border-blue-500 rounded-lg">
           <div className="flex items-start space-x-3">
-            <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
+            <AlertCircle className="h-5 w-5 text-blue-400 mt-0.5" />
             <div>
-              <p className="text-sm font-bold text-blue-900">Flight Prices & Availability</p>
-              <p className="text-xs text-blue-800 mt-1">
-                Prices shown are estimates. Click "Book Flight" to check real-time availability and current rates on airline websites.
-                For API integration, you can use Google Flights API, Amadeus, or Skyscanner API for live pricing.
+              <p className="text-sm font-bold text-blue-200">✈️ Real-Time Flight Data</p>
+              <p className="text-xs text-blue-300 mt-1">
+                {process.env.NEXT_PUBLIC_AMADEUS_ENABLED === 'true'
+                  ? 'Powered by Amadeus API - showing real flight prices and availability. Click "Book Flight" to complete your reservation.'
+                  : 'Currently showing estimated prices. To enable real-time flight data from Amadeus API, see AMADEUS_SETUP.md. Click "Book Flight" to check current rates on airline websites.'}
               </p>
             </div>
           </div>

@@ -1,38 +1,15 @@
 import { Flight, FlightOption, Location } from '../types';
-import { addHours, addMinutes } from 'date-fns';
+import { addHours, addMinutes, format } from 'date-fns';
+import { AmadeusClient } from './amadeusClient';
 
 /**
  * FlightService - Handles flight search and pricing
  *
- * REAL API INTEGRATION OPTIONS:
+ * Now integrated with Amadeus API for real-time flight data!
+ * Falls back to mock data if API is not configured.
  *
- * 1. Google Flights API (via Serpapi)
- *    - URL: https://serpapi.com/google-flights-api
- *    - Pros: Real-time prices, multiple airlines, easy integration
- *    - Usage: GET request with origin, destination, dates
- *
- * 2. Amadeus Flight API
- *    - URL: https://developers.amadeus.com/self-service/category/flights
- *    - Pros: Industry standard, comprehensive data, free tier available
- *    - Usage: OAuth token + REST API calls
- *
- * 3. Skyscanner API
- *    - URL: https://rapidapi.com/skyscanner/api/skyscanner-flight-search
- *    - Pros: Price comparison across airlines, popular for travel apps
- *    - Usage: RapidAPI subscription
- *
- * 4. Kiwi.com Tequila API
- *    - URL: https://tequila.kiwi.com/
- *    - Pros: Budget flights, multi-city routes
- *    - Usage: API key + REST calls
- *
- * Implementation example:
- * ```typescript
- * const response = await fetch(`https://api.amadeus.com/v2/shopping/flight-offers?originLocationCode=${origin}&destinationLocationCode=${dest}&departureDate=${date}&adults=${travelers}`, {
- *   headers: { 'Authorization': `Bearer ${accessToken}` }
- * });
- * const data = await response.json();
- * ```
+ * Get your Amadeus API keys from: https://developers.amadeus.com/
+ * Free tier: 2,000 API calls/month
  */
 export class FlightService {
   private static airlines = [
@@ -43,6 +20,7 @@ export class FlightService {
 
   /**
    * Search for flights between two locations
+   * Uses Amadeus API if configured, otherwise falls back to mock data
    */
   static async searchFlights(
     origin: Location,
@@ -50,9 +28,146 @@ export class FlightService {
     date: Date,
     travelers: number = 1
   ): Promise<Flight[]> {
-    // TODO: Replace with real API call
-    // Example: const flights = await this.fetchFromAmadeusAPI(origin, destination, date, travelers);
+    // Try Amadeus API first
+    if (AmadeusClient.isConfigured()) {
+      try {
+        const realFlights = await this.fetchFromAmadeusAPI(origin, destination, date, travelers);
+        if (realFlights && realFlights.length > 0) {
+          return realFlights;
+        }
+      } catch (error) {
+        console.error('Amadeus API error, falling back to mock data:', error);
+      }
+    }
+
+    // Fallback to mock data
     return this.generateMockFlights(origin, destination, date, travelers);
+  }
+
+  /**
+   * Fetch real flight data from Amadeus API
+   */
+  private static async fetchFromAmadeusAPI(
+    origin: Location,
+    destination: Location,
+    date: Date,
+    travelers: number
+  ): Promise<Flight[]> {
+    const client = AmadeusClient.getClient();
+    if (!client) return [];
+
+    try {
+      // Get airport codes
+      const originCode = origin.airport || await this.getAirportCode(origin.city);
+      const destCode = destination.airport || await this.getAirportCode(destination.city);
+
+      if (!originCode || !destCode) {
+        console.log('Airport codes not found, using mock data');
+        return [];
+      }
+
+      // Call Amadeus Flight Offers API
+      const response = await client.shopping.flightOffersSearch.get({
+        originLocationCode: originCode,
+        destinationLocationCode: destCode,
+        departureDate: format(date, 'yyyy-MM-dd'),
+        adults: travelers.toString(),
+        max: '6', // Get top 6 results
+        currencyCode: 'USD'
+      });
+
+      // Transform Amadeus response to our Flight type
+      return this.transformAmadeusFlights(response.data, origin, destination, travelers);
+    } catch (error: any) {
+      console.error('Amadeus API call failed:', error.description || error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Transform Amadeus API response to our Flight type
+   */
+  private static transformAmadeusFlights(
+    amadeusData: any[],
+    origin: Location,
+    destination: Location,
+    travelers: number
+  ): Flight[] {
+    return amadeusData.map((offer) => {
+      const itinerary = offer.itineraries[0];
+      const firstSegment = itinerary.segments[0];
+      const lastSegment = itinerary.segments[itinerary.segments.length - 1];
+
+      // Calculate total duration
+      const durationMatch = itinerary.duration.match(/PT(\d+)H(\d+)M/);
+      const hours = durationMatch ? parseInt(durationMatch[1]) : 0;
+      const minutes = durationMatch ? parseInt(durationMatch[2]) : 0;
+      const totalMinutes = hours * 60 + minutes;
+
+      // Number of stops
+      const stops = itinerary.segments.length - 1;
+
+      // Get cabin class
+      const cabinClass = firstSegment.cabin || 'ECONOMY';
+      const flightClass = this.mapCabinClass(cabinClass);
+
+      // Price
+      const price = parseFloat(offer.price.total);
+
+      return {
+        id: offer.id,
+        airline: firstSegment.carrierCode,
+        flightNumber: `${firstSegment.carrierCode}${firstSegment.number}`,
+        origin,
+        destination,
+        departure: new Date(firstSegment.departure.at),
+        arrival: new Date(lastSegment.arrival.at),
+        duration: totalMinutes,
+        stops,
+        price: Math.round(price),
+        currency: offer.price.currency,
+        class: flightClass,
+        bookingUrl: `https://www.google.com/flights?hl=en#flt=${firstSegment.departure.iataCode}.${lastSegment.arrival.iataCode}.${format(new Date(firstSegment.departure.at), 'yyyy-MM-dd')}`,
+        baggage: {
+          cabin: '1 carry-on (10kg)',
+          checked: flightClass === 'economy' ? '1 bag (23kg)' : '2 bags (32kg each)'
+        }
+      };
+    });
+  }
+
+  /**
+   * Map Amadeus cabin class to our flight class type
+   */
+  private static mapCabinClass(cabin: string): 'economy' | 'premium economy' | 'business' | 'first' {
+    const cabinUpper = cabin.toUpperCase();
+    if (cabinUpper.includes('BUSINESS')) return 'business';
+    if (cabinUpper.includes('FIRST')) return 'first';
+    if (cabinUpper.includes('PREMIUM')) return 'premium economy';
+    return 'economy';
+  }
+
+  /**
+   * Get airport code for a city
+   */
+  private static async getAirportCode(city: string): Promise<string | null> {
+    // Common airport codes mapping
+    const airportMap: Record<string, string> = {
+      'Dallas': 'DFW',
+      'Barcelona': 'BCN',
+      'Amsterdam': 'AMS',
+      'Mumbai': 'BOM',
+      'Madrid': 'MAD',
+      'Paris': 'CDG',
+      'London': 'LHR',
+      'New York': 'JFK',
+      'Los Angeles': 'LAX',
+      'Tokyo': 'NRT',
+      'Singapore': 'SIN',
+      'Dubai': 'DXB'
+    };
+
+    return airportMap[city] || null;
   }
 
   /**

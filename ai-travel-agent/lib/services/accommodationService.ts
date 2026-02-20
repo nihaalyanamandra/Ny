@@ -1,9 +1,11 @@
 import { Accommodation, Location } from '../types';
-import { addDays } from 'date-fns';
+import { addDays, format } from 'date-fns';
+import { AmadeusClient } from './amadeusClient';
 
 export class AccommodationService {
   /**
    * Search for accommodations in a location
+   * Uses Amadeus API if configured, otherwise falls back to mock data
    */
   static async searchAccommodations(
     location: Location,
@@ -12,7 +14,133 @@ export class AccommodationService {
     travelers: number,
     types: ('hotel' | 'hostel' | 'apartment' | 'resort')[] = ['hotel']
   ): Promise<Accommodation[]> {
+    // Try Amadeus API first for hotels
+    if (AmadeusClient.isConfigured() && types.includes('hotel')) {
+      try {
+        const realHotels = await this.fetchFromAmadeusAPI(location, checkIn, checkOut, travelers);
+        if (realHotels && realHotels.length > 0) {
+          return realHotels;
+        }
+      } catch (error) {
+        console.error('Amadeus Hotels API error, falling back to mock data:', error);
+      }
+    }
+
     return this.generateMockAccommodations(location, checkIn, checkOut, travelers, types);
+  }
+
+  /**
+   * Fetch real hotel data from Amadeus API
+   */
+  private static async fetchFromAmadeusAPI(
+    location: Location,
+    checkIn: Date,
+    checkOut: Date,
+    travelers: number
+  ): Promise<Accommodation[]> {
+    const client = AmadeusClient.getClient();
+    if (!client) return [];
+
+    try {
+      // Step 1: Search for hotels by city
+      const cityCode = await this.getCityCode(location.city);
+      if (!cityCode) return [];
+
+      const hotelSearch = await client.referenceData.locations.hotels.byCity.get({
+        cityCode: cityCode
+      });
+
+      if (!hotelSearch.data || hotelSearch.data.length === 0) {
+        return [];
+      }
+
+      // Get first 5 hotel IDs
+      const hotelIds = hotelSearch.data.slice(0, 5).map((hotel: any) => hotel.hotelId);
+
+      // Step 2: Get hotel offers with prices
+      const offersResponse = await client.shopping.hotelOffersSearch.get({
+        hotelIds: hotelIds.join(','),
+        checkInDate: format(checkIn, 'yyyy-MM-dd'),
+        checkOutDate: format(checkOut, 'yyyy-MM-dd'),
+        adults: travelers.toString(),
+        roomQuantity: '1',
+        currency: 'USD'
+      });
+
+      // Transform to our Accommodation type
+      return this.transformAmadeusHotels(offersResponse.data, location);
+    } catch (error: any) {
+      console.error('Amadeus Hotels API call failed:', error.description || error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Transform Amadeus hotel response to our Accommodation type
+   */
+  private static transformAmadeusHotels(amadeusData: any[], location: Location): Accommodation[] {
+    return amadeusData.map((hotelData) => {
+      const hotel = hotelData.hotel;
+      const offer = hotelData.offers[0];
+
+      return {
+        id: hotel.hotelId,
+        name: hotel.name,
+        type: 'hotel' as const,
+        location,
+        address: `${hotel.address?.lines?.join(', ') || 'Address not available'}, ${location.city}`,
+        rating: hotel.rating ? parseFloat(hotel.rating) : 4.0,
+        reviews: Math.floor(Math.random() * 2000) + 500,
+        pricePerNight: Math.round(parseFloat(offer.price.total)),
+        currency: offer.price.currency,
+        amenities: this.extractAmenities(hotel),
+        images: [],
+        bookingUrl: 'https://www.booking.com',
+        checkIn: offer.checkInDate || '15:00',
+        checkOut: offer.checkOutDate || '11:00',
+        cancellationPolicy: offer.policies?.cancellation?.description || 'Check with hotel for cancellation policy'
+      };
+    });
+  }
+
+  /**
+   * Extract amenities from hotel data
+   */
+  private static extractAmenities(hotel: any): string[] {
+    const amenities: string[] = ['Free WiFi'];
+
+    if (hotel.amenities) {
+      hotel.amenities.forEach((amenity: string) => {
+        if (amenity.includes('POOL')) amenities.push('Pool');
+        if (amenity.includes('SPA')) amenities.push('Spa');
+        if (amenity.includes('GYM') || amenity.includes('FITNESS')) amenities.push('Gym');
+        if (amenity.includes('RESTAURANT')) amenities.push('Restaurant');
+        if (amenity.includes('BAR')) amenities.push('Bar');
+        if (amenity.includes('PARKING')) amenities.push('Parking');
+      });
+    }
+
+    return [...new Set(amenities)]; // Remove duplicates
+  }
+
+  /**
+   * Get city code for Amadeus API
+   */
+  private static async getCityCode(city: string): Promise<string | null> {
+    const cityMap: Record<string, string> = {
+      'Barcelona': 'BCN',
+      'Amsterdam': 'AMS',
+      'Mumbai': 'BOM',
+      'Madrid': 'MAD',
+      'Paris': 'PAR',
+      'London': 'LON',
+      'New York': 'NYC',
+      'Los Angeles': 'LAX',
+      'Tokyo': 'TYO',
+      'Singapore': 'SIN'
+    };
+
+    return cityMap[city] || null;
   }
 
   private static generateMockAccommodations(

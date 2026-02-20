@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2, Plus, X } from 'lucide-react';
+import { Loader2, Plus, X, MapPin as MapPinIcon } from 'lucide-react';
 import { locations, getCountries, getCitiesByCountry } from '@/data/locations';
+import { getCountryInfo } from '@/data/countryInfo';
 
 interface TripFormProps {
   onSubmit: (data: any) => void;
@@ -177,6 +178,20 @@ export default function TripForm({ onSubmit, loading }: TripFormProps) {
           </select>
         </div>
       </div>
+
+      {/* Destination Country Info */}
+      {formData.destinationCountry && (
+        <div className={`p-4 rounded-xl bg-gradient-to-r ${getCountryInfo(formData.destinationCountry).color} text-white shadow-lg`}>
+          <div className="flex items-center space-x-3 mb-2">
+            <span className="text-4xl">{getCountryInfo(formData.destinationCountry).emoji}</span>
+            <div>
+              <h4 className="text-lg font-bold">Discover {formData.destinationCountry}</h4>
+              <p className="text-sm opacity-90">Famous for: {getCountryInfo(formData.destinationCountry).landmark}</p>
+            </div>
+          </div>
+          <p className="text-sm opacity-90">{getCountryInfo(formData.destinationCountry).description}</p>
+        </div>
+      )}
 
       {/* Additional Cities */}
       {additionalCities.map((city, index) => (

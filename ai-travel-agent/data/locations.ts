@@ -324,6 +324,64 @@ export const locations: Record<string, Location> = {
     airport: 'PRG',
     latitude: 50.0755,
     longitude: 14.4378
+  },
+
+  // India
+  delhi: {
+    city: 'New Delhi',
+    country: 'India',
+    airport: 'DEL',
+    latitude: 28.6139,
+    longitude: 77.2090
+  },
+  mumbai: {
+    city: 'Mumbai',
+    country: 'India',
+    airport: 'BOM',
+    latitude: 19.0760,
+    longitude: 72.8777
+  },
+  bangalore: {
+    city: 'Bangalore',
+    country: 'India',
+    airport: 'BLR',
+    latitude: 12.9716,
+    longitude: 77.5946
+  },
+  chennai: {
+    city: 'Chennai',
+    country: 'India',
+    airport: 'MAA',
+    latitude: 13.0827,
+    longitude: 80.2707
+  },
+  kolkata: {
+    city: 'Kolkata',
+    country: 'India',
+    airport: 'CCU',
+    latitude: 22.5726,
+    longitude: 88.3639
+  },
+  hyderabad: {
+    city: 'Hyderabad',
+    country: 'India',
+    airport: 'HYD',
+    latitude: 17.3850,
+    longitude: 78.4867
+  },
+  goa: {
+    city: 'Goa',
+    country: 'India',
+    airport: 'GOI',
+    latitude: 15.2993,
+    longitude: 74.1240
+  },
+  jaipur: {
+    city: 'Jaipur',
+    country: 'India',
+    airport: 'JAI',
+    latitude: 26.9124,
+    longitude: 75.7873
   }
 };
 

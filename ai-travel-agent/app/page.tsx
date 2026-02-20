@@ -36,17 +36,17 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-purple-100 to-pink-100">
       {/* Header */}
-      <header className="bg-white shadow-sm">
+      <header className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <Plane className="h-8 w-8 text-blue-600" />
-              <h1 className="text-3xl font-bold text-gray-900">AI Travel Agent</h1>
+              <Plane className="h-8 w-8 text-white" />
+              <h1 className="text-3xl font-bold text-white">AI Travel Agent</h1>
             </div>
-            <div className="flex items-center space-x-2 text-sm font-bold text-black">
-              <Sparkles className="h-5 w-5 text-purple-600" />
+            <div className="flex items-center space-x-2 text-sm font-bold text-white">
+              <Sparkles className="h-5 w-5 text-yellow-300" />
               <span>Powered by Claude AI</span>
             </div>
           </div>

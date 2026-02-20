@@ -19,6 +19,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { getCountryInfo } from '@/data/countryInfo';
 
 interface ItineraryResultsProps {
   results: AIRecommendation;
@@ -374,19 +375,25 @@ function FlightCard({ flight, type }: { flight: any; type: string }) {
 }
 
 function DayCard({ day }: { day: any }) {
+  const countryInfo = getCountryInfo(day.accommodation.location.country);
+
   return (
-    <div className="card">
+    <div className="card overflow-hidden">
+      {/* Country Header */}
+      <div className={`-mx-6 -mt-6 mb-4 p-4 bg-gradient-to-r ${countryInfo.color}`}>
+        <div className="flex items-center space-x-3 text-white">
+          <span className="text-3xl">{countryInfo.emoji}</span>
+          <div>
+            <h4 className="text-xl font-bold">Day {day.day} - {day.location}</h4>
+            <p className="text-sm opacity-90">{format(new Date(day.date), 'EEEE, MMMM dd, yyyy')}</p>
+          </div>
+        </div>
+      </div>
+
       <div className="flex items-start justify-between mb-4">
-        <div>
-          <div className="flex items-center space-x-2 mb-1">
-            <Calendar className="h-5 w-5 text-blue-600" />
-            <h4 className="text-xl font-bold text-gray-900">Day {day.day}</h4>
-          </div>
-          <p className="text-sm font-bold text-black">{format(new Date(day.date), 'EEEE, MMMM dd, yyyy')}</p>
-          <div className="flex items-center space-x-2 mt-1">
-            <MapPin className="h-4 w-4 text-gray-500" />
-            <p className="text-sm font-semibold font-bold text-black">{day.location}</p>
-          </div>
+        <div className="flex items-center space-x-2">
+          <MapPin className="h-5 w-5 text-purple-600" />
+          <p className="text-sm font-bold text-black">Exploring {countryInfo.landmark}</p>
         </div>
         <div className="text-right">
           <p className="text-sm font-bold text-black">Daily Cost</p>

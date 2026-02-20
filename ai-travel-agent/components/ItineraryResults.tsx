@@ -151,7 +151,7 @@ function ComparisonCard({
         <h4 className="font-semibold text-sm">{title}</h4>
       </div>
       <p className="text-2xl font-bold text-gray-900">${itinerary.totalCost.total.toLocaleString()}</p>
-      <p className="text-sm text-gray-600 mt-1">{itinerary.name}</p>
+      <p className="text-sm font-bold text-black mt-1">{itinerary.name}</p>
     </div>
   );
 }
@@ -184,18 +184,18 @@ function ItineraryCard({
             style={{ width: `${itinerary.score}%` }}
           />
         </div>
-        <span className="text-sm font-semibold text-gray-700">{itinerary.score}/100</span>
+        <span className="text-sm font-semibold font-bold text-black">{itinerary.score}/100</span>
       </div>
 
       {/* Cost Breakdown */}
       <div className="space-y-2 mb-4">
         <div className="flex justify-between text-sm">
-          <span className="text-gray-600">Total Cost</span>
+          <span className="font-bold text-black">Total Cost</span>
           <span className="font-bold text-2xl text-gray-900">
             ${itinerary.totalCost.total.toLocaleString()}
           </span>
         </div>
-        <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
+        <div className="grid grid-cols-2 gap-2 text-xs font-bold text-black">
           <div>Flights: ${itinerary.totalCost.flights}</div>
           <div>Hotels: ${itinerary.totalCost.accommodation}</div>
           <div>Activities: ${itinerary.totalCost.activities}</div>
@@ -208,11 +208,11 @@ function ItineraryCard({
         <div>
           <div className="flex items-center space-x-2 mb-2">
             <ThumbsUp className="h-4 w-4 text-green-600" />
-            <span className="text-sm font-semibold text-gray-700">Pros</span>
+            <span className="text-sm font-semibold font-bold text-black">Pros</span>
           </div>
           <ul className="space-y-1">
             {itinerary.pros.map((pro, idx) => (
-              <li key={idx} className="text-sm text-gray-600">
+              <li key={idx} className="text-sm font-bold text-black">
                 • {pro}
               </li>
             ))}
@@ -223,11 +223,11 @@ function ItineraryCard({
           <div>
             <div className="flex items-center space-x-2 mb-2">
               <ThumbsDown className="h-4 w-4 text-red-600" />
-              <span className="text-sm font-semibold text-gray-700">Cons</span>
+              <span className="text-sm font-semibold font-bold text-black">Cons</span>
             </div>
             <ul className="space-y-1">
               {itinerary.cons.map((con, idx) => (
-                <li key={idx} className="text-sm text-gray-600">
+                <li key={idx} className="text-sm font-bold text-black">
                   • {con}
                 </li>
               ))}
@@ -264,21 +264,21 @@ function DetailedItinerary({
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
-            <p className="text-sm text-gray-600">Total Cost</p>
+            <p className="text-sm font-bold text-black">Total Cost</p>
             <p className="text-2xl font-bold text-gray-900">${itinerary.totalCost.total.toLocaleString()}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-600">Duration</p>
+            <p className="text-sm font-bold text-black">Duration</p>
             <p className="text-2xl font-bold text-gray-900">{itinerary.dailyItinerary.length} days</p>
           </div>
           <div>
-            <p className="text-sm text-gray-600">Activities</p>
+            <p className="text-sm font-bold text-black">Activities</p>
             <p className="text-2xl font-bold text-gray-900">
               {itinerary.dailyItinerary.reduce((sum, day) => sum + day.activities.length, 0)}
             </p>
           </div>
           <div>
-            <p className="text-sm text-gray-600">Score</p>
+            <p className="text-sm font-bold text-black">Score</p>
             <p className="text-2xl font-bold text-gray-900">{itinerary.score}/100</p>
           </div>
         </div>
@@ -317,9 +317,9 @@ function DetailedItinerary({
             {itinerary.dayTrips.map((trip) => (
               <div key={trip.id} className="border border-gray-200 rounded-lg p-4">
                 <h4 className="font-semibold text-gray-900 mb-2">{trip.name}</h4>
-                <p className="text-sm text-gray-600 mb-2">{trip.description}</p>
+                <p className="text-sm font-bold text-black mb-2">{trip.description}</p>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">{trip.duration} hours</span>
+                  <span className="font-bold text-black">{trip.duration} hours</span>
                   <span className="font-semibold text-gray-900">${trip.estimatedCost}</span>
                 </div>
               </div>
@@ -336,28 +336,28 @@ function FlightCard({ flight, type }: { flight: any; type: string }) {
     <div className="border border-gray-200 rounded-lg p-4">
       <div className="flex justify-between items-start mb-2">
         <div>
-          <p className="text-sm text-gray-600">{type} Flight</p>
+          <p className="text-sm font-bold text-black">{type} Flight</p>
           <p className="font-semibold text-gray-900">
             {flight.airline} {flight.flightNumber}
           </p>
         </div>
         <div className="text-right">
           <p className="text-xl font-bold text-gray-900">${flight.price}</p>
-          <p className="text-sm text-gray-600">{flight.class}</p>
+          <p className="text-sm font-bold text-black">{flight.class}</p>
         </div>
       </div>
       <div className="flex items-center justify-between text-sm">
         <div>
           <p className="font-semibold">{flight.origin.city}</p>
-          <p className="text-gray-600">{format(new Date(flight.departure), 'MMM dd, HH:mm')}</p>
+          <p className="font-bold text-black">{format(new Date(flight.departure), 'MMM dd, HH:mm')}</p>
         </div>
         <div className="text-center">
-          <p className="text-gray-600">{Math.floor(flight.duration / 60)}h {flight.duration % 60}m</p>
-          <p className="text-gray-600">{flight.stops} {flight.stops === 1 ? 'stop' : 'stops'}</p>
+          <p className="font-bold text-black">{Math.floor(flight.duration / 60)}h {flight.duration % 60}m</p>
+          <p className="font-bold text-black">{flight.stops} {flight.stops === 1 ? 'stop' : 'stops'}</p>
         </div>
         <div className="text-right">
           <p className="font-semibold">{flight.destination.city}</p>
-          <p className="text-gray-600">{format(new Date(flight.arrival), 'MMM dd, HH:mm')}</p>
+          <p className="font-bold text-black">{format(new Date(flight.arrival), 'MMM dd, HH:mm')}</p>
         </div>
       </div>
       <a
@@ -382,14 +382,14 @@ function DayCard({ day }: { day: any }) {
             <Calendar className="h-5 w-5 text-blue-600" />
             <h4 className="text-xl font-bold text-gray-900">Day {day.day}</h4>
           </div>
-          <p className="text-sm text-gray-600">{format(new Date(day.date), 'EEEE, MMMM dd, yyyy')}</p>
+          <p className="text-sm font-bold text-black">{format(new Date(day.date), 'EEEE, MMMM dd, yyyy')}</p>
           <div className="flex items-center space-x-2 mt-1">
             <MapPin className="h-4 w-4 text-gray-500" />
-            <p className="text-sm font-semibold text-gray-700">{day.location}</p>
+            <p className="text-sm font-semibold font-bold text-black">{day.location}</p>
           </div>
         </div>
         <div className="text-right">
-          <p className="text-sm text-gray-600">Daily Cost</p>
+          <p className="text-sm font-bold text-black">Daily Cost</p>
           <p className="text-xl font-bold text-gray-900">${day.estimatedCost}</p>
         </div>
       </div>
@@ -407,20 +407,20 @@ function DayCard({ day }: { day: any }) {
       <div className="mb-4">
         <div className="flex items-center space-x-2 mb-2">
           <Hotel className="h-4 w-4 text-purple-600" />
-          <p className="text-sm font-semibold text-gray-700">Accommodation</p>
+          <p className="text-sm font-semibold font-bold text-black">Accommodation</p>
         </div>
         <div className="border border-gray-200 rounded-lg p-3">
           <div className="flex justify-between items-start">
             <div>
               <p className="font-semibold text-gray-900">{day.accommodation.name}</p>
-              <p className="text-sm text-gray-600">{day.accommodation.address}</p>
+              <p className="text-sm font-bold text-black">{day.accommodation.address}</p>
               <p className="text-xs text-gray-500 mt-1">
                 ⭐ {day.accommodation.rating} ({day.accommodation.reviews} reviews)
               </p>
             </div>
             <div className="text-right">
               <p className="font-bold text-gray-900">${day.accommodation.pricePerNight}</p>
-              <p className="text-xs text-gray-600">per night</p>
+              <p className="text-xs font-bold text-black">per night</p>
             </div>
           </div>
           <a
@@ -439,13 +439,13 @@ function DayCard({ day }: { day: any }) {
       <div>
         <div className="flex items-center space-x-2 mb-2">
           <Activity className="h-4 w-4 text-green-600" />
-          <p className="text-sm font-semibold text-gray-700">Activities</p>
+          <p className="text-sm font-semibold font-bold text-black">Activities</p>
         </div>
         <div className="space-y-3">
           {day.activities.map((act: any, idx: number) => (
             <div key={idx} className="border-l-2 border-green-500 pl-3">
               <p className="text-sm font-semibold text-gray-900">{act.time} - {act.activity.name}</p>
-              <p className="text-xs text-gray-600 mt-1">{act.activity.description}</p>
+              <p className="text-xs font-bold text-black mt-1">{act.activity.description}</p>
               <div className="flex items-center space-x-4 mt-1 text-xs text-gray-500">
                 <span>{act.duration} min</span>
                 <span>${act.activity.price}</span>

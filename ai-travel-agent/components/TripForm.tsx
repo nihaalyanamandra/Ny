@@ -233,7 +233,7 @@ export default function TripForm({ onSubmit, loading }: TripFormProps) {
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 formData.interests.includes(interest)
                   ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  : 'bg-gray-100 font-bold text-black hover:bg-gray-200'
               }`}
             >
               {interest.charAt(0).toUpperCase() + interest.slice(1)}
@@ -254,7 +254,7 @@ export default function TripForm({ onSubmit, loading }: TripFormProps) {
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 formData.accommodationType.includes(type)
                   ? 'bg-purple-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  : 'bg-gray-100 font-bold text-black hover:bg-gray-200'
               }`}
             >
               {type.charAt(0).toUpperCase() + type.slice(1)}
@@ -275,7 +275,7 @@ export default function TripForm({ onSubmit, loading }: TripFormProps) {
           <option value="other">Other / Not Sure</option>
         </select>
         {formData.visaType === 'schengen' && (
-          <p className="mt-2 text-sm text-gray-600">
+          <p className="mt-2 text-sm font-bold text-black">
             ℹ️ Schengen visa allows you to visit all Schengen countries. Your itinerary will be
             checked for compliance.
           </p>

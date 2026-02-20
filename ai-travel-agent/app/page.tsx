@@ -45,7 +45,7 @@ export default function Home() {
               <Plane className="h-8 w-8 text-blue-600" />
               <h1 className="text-3xl font-bold text-gray-900">AI Travel Agent</h1>
             </div>
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <div className="flex items-center space-x-2 text-sm font-bold text-black">
               <Sparkles className="h-5 w-5 text-purple-600" />
               <span>Powered by Claude AI</span>
             </div>
@@ -59,7 +59,7 @@ export default function Home() {
           <h2 className="text-4xl font-extrabold text-gray-900 sm:text-5xl mb-4">
             Plan Your Perfect Trip
           </h2>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+          <p className="text-xl font-bold text-black max-w-3xl mx-auto">
             Get personalized multi-city itineraries with visa guidance, accommodation options,
             activities, and complete day-by-day planning powered by AI.
           </p>
@@ -102,7 +102,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="bg-white border-t border-gray-200 mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <p className="text-center text-gray-600">
+          <p className="text-center font-bold text-black">
             © 2024 AI Travel Agent. Built with Next.js and Claude AI.
           </p>
         </div>
@@ -126,7 +126,7 @@ function FeatureCard({
         {icon}
         <h3 className="font-semibold text-gray-900">{title}</h3>
       </div>
-      <p className="text-sm text-gray-600">{description}</p>
+      <p className="text-sm font-bold text-black">{description}</p>
     </div>
   );
 }

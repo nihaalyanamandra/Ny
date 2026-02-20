@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Plus, X } from 'lucide-react';
+import { locations, getCountries, getCitiesByCountry } from '@/data/locations';
 
 interface TripFormProps {
   onSubmit: (data: any) => void;
@@ -10,12 +11,12 @@ interface TripFormProps {
 
 export default function TripForm({ onSubmit, loading }: TripFormProps) {
   const [formData, setFormData] = useState({
-    originCity: 'Dallas',
     originCountry: 'United States',
-    destinationCity: 'Barcelona',
+    originCity: 'Dallas',
     destinationCountry: 'Spain',
-    returnCity: 'Amsterdam',
+    destinationCity: 'Barcelona',
     returnCountry: 'Netherlands',
+    returnCity: 'Amsterdam',
     startDate: '',
     endDate: '',
     travelers: 1,
@@ -26,6 +27,13 @@ export default function TripForm({ onSubmit, loading }: TripFormProps) {
     accommodationType: ['hotel'] as string[],
     visaType: 'schengen' as const,
   });
+
+  const [additionalCities, setAdditionalCities] = useState<Array<{ country: string; city: string }>>([]);
+
+  const countries = getCountries();
+  const originCities = getCitiesByCountry(formData.originCountry);
+  const destinationCities = getCitiesByCountry(formData.destinationCountry);
+  const returnCities = getCitiesByCountry(formData.returnCountry);
 
   const interestOptions = [
     'culture',
@@ -42,7 +50,7 @@ export default function TripForm({ onSubmit, loading }: TripFormProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+    onSubmit({ ...formData, additionalCities });
   };
 
   const toggleInterest = (interest: string) => {
@@ -63,6 +71,25 @@ export default function TripForm({ onSubmit, loading }: TripFormProps) {
     }));
   };
 
+  const addCity = () => {
+    setAdditionalCities([...additionalCities, { country: 'Spain', city: 'Madrid' }]);
+  };
+
+  const removeCity = (index: number) => {
+    setAdditionalCities(additionalCities.filter((_, i) => i !== index));
+  };
+
+  const updateAdditionalCity = (index: number, field: 'country' | 'city', value: string) => {
+    const updated = [...additionalCities];
+    updated[index][field] = value;
+    // Reset city if country changed
+    if (field === 'country') {
+      const citiesInCountry = getCitiesByCountry(value);
+      updated[index].city = citiesInCountry[0]?.city || '';
+    }
+    setAdditionalCities(updated);
+  };
+
   return (
     <form onSubmit={handleSubmit} className="card space-y-6">
       <h3 className="text-2xl font-bold text-gray-900 mb-6">Plan Your Trip</h3>
@@ -70,72 +97,179 @@ export default function TripForm({ onSubmit, loading }: TripFormProps) {
       {/* Origin */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
+          <label className="label">Origin Country</label>
+          <select
+            className="input-field"
+            value={formData.originCountry}
+            onChange={(e) => {
+              const country = e.target.value;
+              const cities = getCitiesByCountry(country);
+              setFormData({
+                ...formData,
+                originCountry: country,
+                originCity: cities[0]?.city || '',
+              });
+            }}
+            required
+          >
+            {countries.map((country) => (
+              <option key={country} value={country}>
+                {country}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
           <label className="label">Origin City</label>
-          <input
-            type="text"
+          <select
             className="input-field"
             value={formData.originCity}
             onChange={(e) => setFormData({ ...formData, originCity: e.target.value })}
             required
-          />
-        </div>
-        <div>
-          <label className="label">Origin Country</label>
-          <input
-            type="text"
-            className="input-field"
-            value={formData.originCountry}
-            onChange={(e) => setFormData({ ...formData, originCountry: e.target.value })}
-            required
-          />
+          >
+            {originCities.map((location) => (
+              <option key={location.city} value={location.city}>
+                {location.city} ({location.airport || 'N/A'})
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
-      {/* Destination */}
+      {/* First Destination */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="label">First Destination</label>
-          <input
-            type="text"
+          <label className="label">First Destination Country</label>
+          <select
+            className="input-field"
+            value={formData.destinationCountry}
+            onChange={(e) => {
+              const country = e.target.value;
+              const cities = getCitiesByCountry(country);
+              setFormData({
+                ...formData,
+                destinationCountry: country,
+                destinationCity: cities[0]?.city || '',
+              });
+            }}
+            required
+          >
+            {countries.map((country) => (
+              <option key={country} value={country}>
+                {country}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="label">First Destination City</label>
+          <select
             className="input-field"
             value={formData.destinationCity}
             onChange={(e) => setFormData({ ...formData, destinationCity: e.target.value })}
             required
-          />
-        </div>
-        <div>
-          <label className="label">Country</label>
-          <input
-            type="text"
-            className="input-field"
-            value={formData.destinationCountry}
-            onChange={(e) => setFormData({ ...formData, destinationCountry: e.target.value })}
-            required
-          />
+          >
+            {destinationCities.map((location) => (
+              <option key={location.city} value={location.city}>
+                {location.city} ({location.airport || 'N/A'})
+              </option>
+            ))}
+          </select>
         </div>
       </div>
+
+      {/* Additional Cities */}
+      {additionalCities.map((city, index) => (
+        <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-purple-50 rounded-lg relative">
+          <button
+            type="button"
+            onClick={() => removeCity(index)}
+            className="absolute top-2 right-2 text-red-600 hover:text-red-800"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <div>
+            <label className="label">Additional City {index + 1} - Country</label>
+            <select
+              className="input-field"
+              value={city.country}
+              onChange={(e) => updateAdditionalCity(index, 'country', e.target.value)}
+              required
+            >
+              {countries.map((country) => (
+                <option key={country} value={country}>
+                  {country}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label">Additional City {index + 1}</label>
+            <select
+              className="input-field"
+              value={city.city}
+              onChange={(e) => updateAdditionalCity(index, 'city', e.target.value)}
+              required
+            >
+              {getCitiesByCountry(city.country).map((location) => (
+                <option key={location.city} value={location.city}>
+                  {location.city} ({location.airport || 'N/A'})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      ))}
+
+      {/* Add City Button */}
+      <button
+        type="button"
+        onClick={addCity}
+        className="w-full flex items-center justify-center space-x-2 px-4 py-3 border-2 border-dashed border-purple-400 rounded-lg text-purple-600 hover:bg-purple-50 transition-colors font-bold"
+      >
+        <Plus className="h-5 w-5" />
+        <span>Add Another City to Visit</span>
+      </button>
 
       {/* Return From */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="label">Return From (Second City)</label>
-          <input
-            type="text"
+          <label className="label">Return From Country</label>
+          <select
+            className="input-field"
+            value={formData.returnCountry}
+            onChange={(e) => {
+              const country = e.target.value;
+              const cities = getCitiesByCountry(country);
+              setFormData({
+                ...formData,
+                returnCountry: country,
+                returnCity: cities[0]?.city || '',
+              });
+            }}
+            required
+          >
+            {countries.map((country) => (
+              <option key={country} value={country}>
+                {country}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="label">Return From City</label>
+          <select
             className="input-field"
             value={formData.returnCity}
             onChange={(e) => setFormData({ ...formData, returnCity: e.target.value })}
             required
-          />
-        </div>
-        <div>
-          <label className="label">Country</label>
-          <input
-            type="text"
-            className="input-field"
-            value={formData.returnCountry}
-            onChange={(e) => setFormData({ ...formData, returnCountry: e.target.value })}
-            required
-          />
+          >
+            {returnCities.map((location) => (
+              <option key={location.city} value={location.city}>
+                {location.city} ({location.airport || 'N/A'})
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 

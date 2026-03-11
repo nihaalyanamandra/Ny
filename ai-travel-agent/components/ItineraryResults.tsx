@@ -1,0 +1,604 @@
+'use client';
+
+import { useState } from 'react';
+import { AIRecommendation, TripItinerary } from '@/lib/types';
+import {
+  ArrowLeft,
+  DollarSign,
+  Clock,
+  Star,
+  ThumbsUp,
+  ThumbsDown,
+  Calendar,
+  MapPin,
+  Plane,
+  Hotel,
+  Activity,
+  AlertCircle,
+  Lightbulb,
+  ExternalLink,
+} from 'lucide-react';
+import { format } from 'date-fns';
+import { getCountryInfo } from '@/data/countryInfo';
+
+interface ItineraryResultsProps {
+  results: AIRecommendation;
+  onReset: () => void;
+}
+
+export default function ItineraryResults({ results, onReset }: ItineraryResultsProps) {
+  const [selectedItinerary, setSelectedItinerary] = useState<TripItinerary | null>(null);
+
+  if (selectedItinerary) {
+    return (
+      <DetailedItinerary
+        itinerary={selectedItinerary}
+        onBack={() => setSelectedItinerary(null)}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-3xl font-bold text-white">Your Trip Options</h2>
+        <button onClick={onReset} className="btn-secondary flex items-center space-x-2">
+          <ArrowLeft className="h-4 w-4" />
+          <span>New Search</span>
+        </button>
+      </div>
+
+      {/* Tips and Warnings */}
+      {(results.tips.length > 0 || results.warnings.length > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {results.tips.length > 0 && (
+            <div className="card bg-blue-900/30 border-blue-700">
+              <div className="flex items-start space-x-3">
+                <Lightbulb className="h-5 w-5 text-blue-400 mt-0.5" />
+                <div>
+                  <h3 className="font-semibold text-blue-200 mb-2">Travel Tips</h3>
+                  <ul className="space-y-1 text-sm text-blue-300">
+                    {results.tips.map((tip, idx) => (
+                      <li key={idx}>• {tip}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {results.warnings.length > 0 && (
+            <div className="card bg-orange-900/30 border-orange-700">
+              <div className="flex items-start space-x-3">
+                <AlertCircle className="h-5 w-5 text-orange-400 mt-0.5" />
+                <div>
+                  <h3 className="font-semibold text-orange-200 mb-2">Important Notes</h3>
+                  <ul className="space-y-1 text-sm text-orange-300">
+                    {results.warnings.map((warning, idx) => (
+                      <li key={idx}>• {warning}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Comparison Quick View */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <ComparisonCard
+          title="Cheapest"
+          icon={<DollarSign className="h-5 w-5" />}
+          itinerary={results.itineraries.find((it) => it.id === results.comparisons.cheapest)}
+        />
+        <ComparisonCard
+          title="Fastest Travel"
+          icon={<Clock className="h-5 w-5" />}
+          itinerary={results.itineraries.find((it) => it.id === results.comparisons.fastest)}
+        />
+        <ComparisonCard
+          title="Most Activities"
+          icon={<Activity className="h-5 w-5" />}
+          itinerary={results.itineraries.find(
+            (it) => it.id === results.comparisons.mostExperiences
+          )}
+        />
+        <ComparisonCard
+          title="AI Recommended"
+          icon={<Star className="h-5 w-5" />}
+          itinerary={results.itineraries.find((it) => it.id === results.comparisons.recommended)}
+          highlighted
+        />
+      </div>
+
+      {/* Itinerary Cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {results.itineraries.map((itinerary) => (
+          <ItineraryCard
+            key={itinerary.id}
+            itinerary={itinerary}
+            onSelect={() => setSelectedItinerary(itinerary)}
+            isRecommended={itinerary.id === results.comparisons.recommended}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ComparisonCard({
+  title,
+  icon,
+  itinerary,
+  highlighted = false,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  itinerary?: TripItinerary;
+  highlighted?: boolean;
+}) {
+  if (!itinerary) return null;
+
+  return (
+    <div
+      className={`card ${
+        highlighted ? 'bg-gradient-to-br from-purple-900/40 to-blue-900/40 border-purple-500' : ''
+      }`}
+    >
+      <div className="flex items-center space-x-2 mb-2 text-gray-200">
+        {icon}
+        <h4 className="font-semibold text-sm">{title}</h4>
+      </div>
+      <p className="text-2xl font-bold text-white">${itinerary.totalCost.total.toLocaleString()}</p>
+      <p className="text-sm text-gray-300 mt-1">{itinerary.name}</p>
+    </div>
+  );
+}
+
+function ItineraryCard({
+  itinerary,
+  onSelect,
+  isRecommended,
+}: {
+  itinerary: TripItinerary;
+  onSelect: () => void;
+  isRecommended: boolean;
+}) {
+  return (
+    <div className={`card hover:shadow-xl transition-shadow ${isRecommended ? 'ring-2 ring-purple-400' : ''}`}>
+      {isRecommended && (
+        <div className="mb-3 flex items-center space-x-2 text-purple-600">
+          <Star className="h-4 w-4 fill-current" />
+          <span className="text-sm font-semibold">AI Recommended</span>
+        </div>
+      )}
+
+      <h3 className="text-2xl font-bold text-white mb-4">{itinerary.name}</h3>
+
+      {/* Score */}
+      <div className="flex items-center space-x-2 mb-4">
+        <div className="flex-1 bg-slate-700 rounded-full h-2">
+          <div
+            className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full"
+            style={{ width: `${itinerary.score}%` }}
+          />
+        </div>
+        <span className="text-sm font-semibold text-gray-200">{itinerary.score}/100</span>
+      </div>
+
+      {/* Cost Breakdown */}
+      <div className="space-y-2 mb-4">
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-300">Total Cost</span>
+          <span className="font-bold text-2xl text-white">
+            ${itinerary.totalCost.total.toLocaleString()}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-2 text-xs text-gray-300">
+          <div>Flights: ${itinerary.totalCost.flights}</div>
+          <div>Hotels: ${itinerary.totalCost.accommodation}</div>
+          <div>Activities: ${itinerary.totalCost.activities}</div>
+          <div>Food: ${itinerary.totalCost.food}</div>
+        </div>
+      </div>
+
+      {/* Pros and Cons */}
+      <div className="space-y-3 mb-6">
+        <div>
+          <div className="flex items-center space-x-2 mb-2">
+            <ThumbsUp className="h-4 w-4 text-green-400" />
+            <span className="text-sm font-semibold text-gray-200">Pros</span>
+          </div>
+          <ul className="space-y-1">
+            {itinerary.pros.map((pro, idx) => (
+              <li key={idx} className="text-sm text-gray-300">
+                • {pro}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {itinerary.cons.length > 0 && (
+          <div>
+            <div className="flex items-center space-x-2 mb-2">
+              <ThumbsDown className="h-4 w-4 text-red-400" />
+              <span className="text-sm font-semibold text-gray-200">Cons</span>
+            </div>
+            <ul className="space-y-1">
+              {itinerary.cons.map((con, idx) => (
+                <li key={idx} className="text-sm text-gray-300">
+                  • {con}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {/* View Details Button */}
+      <button onClick={onSelect} className="btn-primary w-full">
+        View Full Itinerary
+      </button>
+    </div>
+  );
+}
+
+function DetailedItinerary({
+  itinerary,
+  onBack,
+}: {
+  itinerary: TripItinerary;
+  onBack: () => void;
+}) {
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="card">
+        <button onClick={onBack} className="mb-4 flex items-center space-x-2 text-blue-600 hover:text-blue-700">
+          <ArrowLeft className="h-4 w-4" />
+          <span>Back to Options</span>
+        </button>
+
+        <h2 className="text-3xl font-bold text-white mb-4">{itinerary.name}</h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <p className="text-sm text-gray-400">Total Cost</p>
+            <p className="text-2xl font-bold text-white">${itinerary.totalCost.total.toLocaleString()}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-400">Duration</p>
+            <p className="text-2xl font-bold text-white">{itinerary.dailyItinerary.length} days</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-400">Activities</p>
+            <p className="text-2xl font-bold text-white">
+              {itinerary.dailyItinerary.reduce((sum, day) => sum + day.activities.length, 0)}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-400">Score</p>
+            <p className="text-2xl font-bold text-white">{itinerary.score}/100</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Flights */}
+      <div className="card bg-slate-800/50 border-blue-700">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-3">
+            <div className="bg-blue-600 p-3 rounded-xl">
+              <Plane className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h3 className="text-2xl font-bold text-white">Your Flight Options</h3>
+              <p className="text-sm text-gray-300">Best options ranked for your journey</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Outbound Flights */}
+        <div className="mb-8">
+          <h4 className="text-lg font-bold text-white mb-4 flex items-center space-x-2">
+            <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">Outbound</span>
+            <span>{itinerary.request.origin.city} → {itinerary.request.destination.city}</span>
+          </h4>
+          <div className="space-y-4">
+            {itinerary.flights.outbound.map((flight, index) => (
+              <div key={flight.id} className="relative">
+                {index === 0 && (
+                  <div className="absolute -top-2 -left-2 bg-yellow-400 text-yellow-900 px-3 py-1 rounded-full text-xs font-bold shadow-lg z-10">
+                    ⭐ Best Option
+                  </div>
+                )}
+                <FlightCard flight={flight} type="Outbound" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Return Flights */}
+        {itinerary.flights.return && itinerary.flights.return.length > 0 && (
+          <div>
+            <h4 className="text-lg font-bold text-white mb-4 flex items-center space-x-2">
+              <span className="bg-indigo-600 text-white px-3 py-1 rounded-full text-sm">Return</span>
+              <span>{itinerary.request.returnFrom?.city || itinerary.request.destination.city} → {itinerary.request.origin.city}</span>
+            </h4>
+            <div className="space-y-4">
+              {itinerary.flights.return.map((flight, index) => (
+                <div key={flight.id} className="relative">
+                  {index === 0 && (
+                    <div className="absolute -top-2 -left-2 bg-yellow-400 text-yellow-900 px-3 py-1 rounded-full text-xs font-bold shadow-lg z-10">
+                      ⭐ Best Option
+                    </div>
+                  )}
+                  <FlightCard flight={flight} type="Return" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Travel APIs Note */}
+        <div className="mt-6 p-4 bg-blue-900/40 border-l-4 border-blue-500 rounded-lg">
+          <div className="flex items-start space-x-3">
+            <AlertCircle className="h-5 w-5 text-blue-400 mt-0.5" />
+            <div>
+              <p className="text-sm font-bold text-blue-200">✈️ Real-Time Flight Data</p>
+              <p className="text-xs text-blue-300 mt-1">
+                {process.env.NEXT_PUBLIC_AMADEUS_ENABLED === 'true'
+                  ? 'Powered by Amadeus API - showing real flight prices and availability. Click "Book Flight" to complete your reservation.'
+                  : 'Currently showing estimated prices. To enable real-time flight data from Amadeus API, see AMADEUS_SETUP.md. Click "Book Flight" to check current rates on airline websites.'}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Daily Itinerary */}
+      <div className="space-y-4">
+        <h3 className="text-2xl font-bold text-white">Day-by-Day Itinerary</h3>
+        {itinerary.dailyItinerary.map((day) => (
+          <DayCard key={day.day} day={day} />
+        ))}
+      </div>
+
+      {/* Day Trips */}
+      {itinerary.dayTrips.length > 0 && (
+        <div className="card">
+          <h3 className="text-xl font-bold text-white mb-4">Optional Day Trips</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {itinerary.dayTrips.map((trip) => (
+              <div key={trip.id} className="border border-slate-700 rounded-lg p-4 bg-slate-900">
+                <h4 className="font-semibold text-white mb-2">{trip.name}</h4>
+                <p className="text-sm text-gray-300 mb-2">{trip.description}</p>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-300">{trip.duration} hours</span>
+                  <span className="font-semibold text-white">${trip.estimatedCost}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FlightCard({ flight, type }: { flight: any; type: string }) {
+  const getBadgeColor = () => {
+    if (flight.stops === 0) return 'bg-green-100 text-green-800';
+    if (flight.stops === 1) return 'bg-yellow-100 text-yellow-800';
+    return 'bg-orange-100 text-orange-800';
+  };
+
+  const getClassColor = () => {
+    if (flight.class === 'business') return 'bg-purple-100 text-purple-800';
+    if (flight.class === 'first') return 'bg-pink-100 text-pink-800';
+    if (flight.class === 'premium economy') return 'bg-blue-100 text-blue-800';
+    return 'bg-gray-100 text-gray-800';
+  };
+
+  return (
+    <div className="border-2 border-blue-700 rounded-xl p-5 bg-slate-900 hover:shadow-xl transition-all duration-300 hover:border-blue-500">
+      {/* Header with route */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center space-x-3">
+          <div className="bg-blue-600 p-2 rounded-lg">
+            <Plane className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-blue-400 uppercase tracking-wide">{type} Flight</p>
+            <h4 className="text-lg font-bold text-white">
+              {flight.origin.city} → {flight.destination.city}
+            </h4>
+            <p className="text-sm text-gray-400">
+              {flight.airline} {flight.flightNumber}
+            </p>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-3xl font-bold text-blue-400">${flight.price}</p>
+          <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${getClassColor()}`}>
+            {flight.class}
+          </span>
+        </div>
+      </div>
+
+      {/* Flight timeline */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="text-left">
+          <p className="text-2xl font-bold text-white">
+            {format(new Date(flight.departure), 'HH:mm')}
+          </p>
+          <p className="text-sm text-gray-300">{flight.origin.city}</p>
+          <p className="text-xs text-gray-400">{flight.origin.airport}</p>
+          <p className="text-xs text-gray-500">{format(new Date(flight.departure), 'MMM dd, yyyy')}</p>
+        </div>
+
+        <div className="flex-1 mx-4">
+          <div className="relative">
+            <div className="h-1 bg-gradient-to-r from-blue-500 to-indigo-500 rounded"></div>
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+              <div className="bg-slate-800 px-3 py-1 rounded-full border-2 border-blue-500">
+                <p className="text-xs font-bold text-blue-400">
+                  {Math.floor(flight.duration / 60)}h {flight.duration % 60}m
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="text-center mt-2">
+            <span className={`inline-block px-2 py-1 rounded-full text-xs font-bold ${getBadgeColor()}`}>
+              {flight.stops === 0 ? 'Direct' : `${flight.stops} Stop${flight.stops > 1 ? 's' : ''}`}
+            </span>
+          </div>
+        </div>
+
+        <div className="text-right">
+          <p className="text-2xl font-bold text-white">
+            {format(new Date(flight.arrival), 'HH:mm')}
+          </p>
+          <p className="text-sm text-gray-300">{flight.destination.city}</p>
+          <p className="text-xs text-gray-400">{flight.destination.airport}</p>
+          <p className="text-xs text-gray-500">{format(new Date(flight.arrival), 'MMM dd, yyyy')}</p>
+        </div>
+      </div>
+
+      {/* Baggage info */}
+      <div className="mb-3 p-3 bg-blue-900/30 rounded-lg border border-blue-800">
+        <p className="text-xs font-semibold text-gray-300 mb-1">Baggage Allowance</p>
+        <div className="flex gap-4 text-xs">
+          <span className="text-gray-300">✈️ Cabin: {flight.baggage.cabin}</span>
+          <span className="text-gray-300">🧳 Checked: {flight.baggage.checked}</span>
+        </div>
+      </div>
+
+      {/* Booking button */}
+      <a
+        href={flight.bookingUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 shadow-md hover:shadow-lg"
+      >
+        <span>Book Flight on {flight.airline}</span>
+        <ExternalLink className="h-4 w-4" />
+      </a>
+    </div>
+  );
+}
+
+function DayCard({ day }: { day: any }) {
+  const countryInfo = getCountryInfo(day.accommodation.location.country);
+
+  return (
+    <div className="card overflow-hidden">
+      {/* Country Header */}
+      <div className={`-mx-6 -mt-6 mb-4 p-4 bg-gradient-to-r ${countryInfo.color}`}>
+        <div className="flex items-center space-x-3 text-white">
+          <span className="text-3xl">{countryInfo.emoji}</span>
+          <div>
+            <h4 className="text-xl font-bold">Day {day.day} - {day.location}</h4>
+            <p className="text-sm opacity-90">{format(new Date(day.date), 'EEEE, MMMM dd, yyyy')}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center space-x-2">
+          <MapPin className="h-5 w-5 text-purple-400" />
+          <p className="text-sm text-gray-300">Exploring {countryInfo.landmark}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-sm text-gray-400">Daily Cost</p>
+          <p className="text-xl font-bold text-white">${day.estimatedCost}</p>
+        </div>
+      </div>
+
+      {/* Weather */}
+      <div className="mb-4 p-3 bg-blue-900/30 rounded-lg border border-blue-800">
+        <p className="text-sm font-semibold text-blue-200 mb-1">Weather</p>
+        <p className="text-sm text-blue-300">
+          {day.weather.condition} • {day.weather.temperature.min}°-{day.weather.temperature.max}°{day.weather.temperature.unit}
+        </p>
+        <p className="text-xs text-blue-400 mt-1">{day.weather.description}</p>
+      </div>
+
+      {/* Accommodation */}
+      <div className="mb-4">
+        <div className="flex items-center space-x-2 mb-2">
+          <Hotel className="h-4 w-4 text-purple-400" />
+          <p className="text-sm font-semibold text-gray-200">Accommodation</p>
+        </div>
+        <div className="border border-slate-700 rounded-lg p-3 bg-slate-900">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="font-semibold text-white">{day.accommodation.name}</p>
+              <p className="text-sm text-gray-300">{day.accommodation.address}</p>
+              <p className="text-xs text-gray-400 mt-1">
+                ⭐ {day.accommodation.rating} ({day.accommodation.reviews} reviews)
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="font-bold text-white">${day.accommodation.pricePerNight}</p>
+              <p className="text-xs text-gray-400">per night</p>
+            </div>
+          </div>
+          <a
+            href={day.accommodation.bookingUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2 flex items-center space-x-1 text-blue-400 hover:text-blue-300 text-xs"
+          >
+            <span>Book Now</span>
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        </div>
+      </div>
+
+      {/* Activities */}
+      <div>
+        <div className="flex items-center space-x-2 mb-2">
+          <Activity className="h-4 w-4 text-green-400" />
+          <p className="text-sm font-semibold text-gray-200">Activities</p>
+        </div>
+        <div className="space-y-3">
+          {day.activities.map((act: any, idx: number) => (
+            <div key={idx} className="border-l-2 border-green-500 pl-3">
+              <p className="text-sm font-semibold text-white">{act.time} - {act.activity.name}</p>
+              <p className="text-xs text-gray-300 mt-1">{act.activity.description}</p>
+              <div className="flex items-center space-x-4 mt-1 text-xs text-gray-400">
+                <span>{act.duration} min</span>
+                <span>${act.activity.price}</span>
+                {act.activity.bookingUrl && (
+                  <a
+                    href={act.activity.bookingUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-400 hover:text-blue-300 flex items-center space-x-1"
+                  >
+                    <span>Book</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Notes */}
+      {day.notes && day.notes.length > 0 && (
+        <div className="mt-4 p-3 bg-yellow-900/30 rounded-lg border border-yellow-800">
+          <p className="text-sm font-semibold text-yellow-200 mb-1">Notes</p>
+          {day.notes.map((note: string, idx: number) => (
+            <p key={idx} className="text-sm text-yellow-300">
+              • {note}
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

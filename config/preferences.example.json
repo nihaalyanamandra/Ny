@@ -1,0 +1,13 @@
+{
+  "job_titles": ["Software Engineer", "Backend Engineer", "Full Stack Developer"],
+  "locations": ["Remote", "San Francisco, CA", "New York, NY"],
+  "min_salary": 120000,
+  "experience_levels": ["mid", "senior"],
+  "job_types": ["full-time"],
+  "skills_required": ["Python", "TypeScript"],
+  "industries_preferred": ["Tech", "FinTech", "SaaS"],
+  "companies_blacklist": ["CompanyToAvoid Inc"],
+  "keywords_blacklist": ["unpaid", "internship", "commission only"],
+  "cover_letter_template": "I am excited to apply for the {job_title} role at {company}. With my background in {relevant_skills}, I believe I can make a strong contribution to your team.",
+  "extra_instructions": "Emphasize my open source contributions and remote work experience."
+}

@@ -1,0 +1,24 @@
+FULL NAME
+email@example.com | (555) 123-4567 | linkedin.com/in/yourprofile | github.com/yourhandle
+
+SUMMARY
+Experienced software engineer with 5+ years building scalable backend systems and full-stack web applications. Strong in Python, TypeScript, and cloud infrastructure.
+
+EXPERIENCE
+Senior Software Engineer | Acme Corp | 2021–Present
+- Led migration of monolith to microservices, reducing p99 latency by 40%
+- Built real-time data pipeline processing 10M events/day using Kafka + Python
+- Mentored 3 junior engineers
+
+Software Engineer | Startup XYZ | 2019–2021
+- Developed REST APIs in FastAPI serving 500K daily users
+- Implemented CI/CD pipelines with GitHub Actions and Docker
+
+SKILLS
+Languages: Python, TypeScript, Go, SQL
+Frameworks: FastAPI, React, Next.js, Django
+Cloud: AWS (EC2, Lambda, RDS, S3), GCP
+Tools: Docker, Kubernetes, PostgreSQL, Redis, Kafka
+
+EDUCATION
+B.S. Computer Science | State University | 2019

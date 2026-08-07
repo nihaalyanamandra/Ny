@@ -1,0 +1,25 @@
+# OPTIONAL: only install this if you have multi-speaker audio and need
+# pyannote.audio for diarization.
+#
+# IMPORTANT: install this in its OWN separate venv, not on top of
+# requirements.txt. pyannote.audio's dependency chain (via
+# asteroid-filterbanks) pulls in numpy>=2, which conflicts with the
+# numpy<2 pin required by numba/librosa/openai-whisper in the core env.
+# Mixing them in one venv will silently upgrade numpy and can break
+# Whisper/librosa in subtle ways (numba JIT failures, librosa dtype errors).
+#
+# Setup:
+#   python3 -m venv .venv-diarize && source .venv-diarize/bin/activate
+#   pip install --upgrade pip
+#   pip install "setuptools<81" wheel
+#   pip install --no-build-isolation -r requirements-diarization.txt
+#
+# You'll also need:
+#   - a Hugging Face account + access token with access granted to
+#     pyannote/speaker-diarization-3.1 (gated model, requires accepting
+#     terms on the model page)
+#   - HF_TOKEN set as an environment variable
+
+pyannote.audio==3.1.1
+torch==2.3.1
+torchaudio==2.3.1

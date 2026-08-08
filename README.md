@@ -15,7 +15,37 @@ context for the feedback report.
 5. `src/synthesize.py` — Claude API turns raw metrics into readable feedback
 6. `src/pipeline.py` — orchestrates all stages end-to-end
 
-(Being built incrementally — see status below.)
+Run the whole thing on one file:
+
+```
+python -m src.pipeline path/to/recording.wav
+```
+
+Outputs land in `output/`: the final `<stem>_report.md`, plus intermediate
+`_transcript.json` / `_acoustic_features.json` / `_pauses.json` /
+`_sentences.json` (drop `--no-intermediate` to skip those). Each stage is
+also runnable standalone (`python -m src.transcribe ...`, etc.) — see each
+file's `--help` for options.
+
+### Design notes worth knowing before you tune thresholds
+
+- **Trailing-off scoring** (`src/segment.py`) splits each sentence into its
+  first two-thirds and final third by time, and flags `trailing_off: true`
+  only when *both* energy (>3dB) and pitch (>15%) drop past threshold in
+  the final third — normal English sentence-final intonation already tapers
+  a bit, so both thresholds sit above that baseline. Sentences shorter than
+  1.2s aren't scored (too little audio per third for a stable estimate).
+  Both thresholds are CLI flags (`--energy-threshold-db`, `--pitch-threshold-pct`).
+- **Intensity mean** is computed via Praat's energy-based averaging, not a
+  plain mean of dB values — dB is a log scale, so naive averaging
+  systematically underweights the loud frames. This mattered in testing:
+  it flipped which "half" of a sentence looked louder.
+- **Pause classification** (`src/pause_detection.py`) matches pauses to
+  sentence boundaries by containment/ordering rather than tight timestamp
+  alignment, because Whisper's word timestamps and webrtcvad's detected
+  speech boundaries can disagree by several hundred ms on the same audio.
+- Diarization (pyannote) is intentionally left out of the default pipeline
+  — see the Setup section below.
 
 ## Setup
 
@@ -57,9 +87,19 @@ numpy pin).
 ## Status
 
 - [x] Stage 1: venv + requirements.txt (verified installable together on Python 3.11)
-- [ ] Stage 2: transcribe.py
-- [ ] Stage 3: acoustic_features.py
-- [ ] Stage 4: pause_detection.py
-- [ ] Stage 5: segment.py
-- [ ] Stage 6: synthesize.py
-- [ ] Stage 7: pipeline.py
+- [x] Stage 2: transcribe.py
+- [x] Stage 3: acoustic_features.py
+- [x] Stage 4: pause_detection.py
+- [x] Stage 5: segment.py
+- [x] Stage 6: synthesize.py — **model ID in `DEFAULT_MODEL` is a guess, verify it against Anthropic's current model list** (override with `--model`/`--claude-model` or `ANTHROPIC_MODEL`)
+- [x] Stage 7: pipeline.py
+
+All stages were smoke-tested end-to-end on a synthetic recording (espeak-ng
+TTS + engineered pauses/fades) in the dev sandbox — transcription, pitch/
+intensity/jitter/shimmer extraction, pause classification, and trailing-off
+scoring all ran and produced sane numbers; a couple of real bugs (a Praat
+silence-floor artifact corrupting intensity stats, a naive dB-averaging
+bug, and a pause-to-sentence attribution bug) were caught and fixed this
+way. **Not yet tested**: the Stage 6/7 Claude API call itself (no
+`ANTHROPIC_API_KEY` available in the sandbox) or any real human recording.
+Please test both on your end before trusting the output.

@@ -1,0 +1,42 @@
+# Core requirements for the speech delivery analytics pipeline.
+# Verified installable together on Python 3.11 (2024-09 openai-whisper release).
+#
+# Setup:
+#   python3 -m venv .venv && source .venv/bin/activate
+#   pip install --upgrade pip
+#   pip install "setuptools<81" wheel   # see note below
+#   pip install -r requirements.txt
+#
+# Note on setuptools: pip builds some packages (openai-whisper) in an isolated
+# build environment and grabs the latest setuptools for it. setuptools>=81
+# dropped the bundled pkg_resources module, which openai-whisper's setup.py
+# still imports, so the isolated build fails with
+# "ModuleNotFoundError: No module named 'pkg_resources'". Installing
+# "setuptools<81" into your venv first and then installing with
+# --no-build-isolation avoids this:
+#   pip install --no-build-isolation -r requirements.txt
+#
+# System dependency: ffmpeg must be on PATH (Whisper shells out to it to
+# decode audio). Install via your OS package manager, e.g.:
+#   macOS:  brew install ffmpeg
+#   Ubuntu: sudo apt-get install ffmpeg
+
+# --- Transcription (local Whisper, word-level timestamps) ---
+openai-whisper==20240930
+torch==2.3.1
+torchaudio==2.3.1
+
+# --- Acoustic features: pitch (F0), intensity, jitter, shimmer ---
+praat-parselmouth==0.4.5
+
+# --- Supplementary energy/RMS + general audio utilities ---
+librosa==0.10.2.post1
+numpy<2          # librosa/numba on this stack are not yet numpy 2.x compatible
+soundfile==0.14.0
+
+# --- Pause / silence / VAD detection ---
+webrtcvad==2.0.10
+
+# --- Report synthesis via Claude API ---
+anthropic==0.40.0
+python-dotenv==1.0.1

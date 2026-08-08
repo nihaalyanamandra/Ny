@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
+from typing import Callable
 
 from dotenv import load_dotenv
 
@@ -42,18 +43,29 @@ def run_pipeline(
     claude_model: str = DEFAULT_MODEL,
     keep_intermediate: bool = True,
     output_dir: str = "output",
+    on_progress: Callable[[str], None] | None = None,
 ) -> str:
-    """Runs all stages and returns the path to the final markdown report."""
+    """Runs all stages and returns the path to the final markdown report.
+
+    `on_progress`, if given, is called with a short stage-name string at
+    the start of each stage -- used by the backend API to report progress
+    to the frontend while a job runs. The CLI just prints instead.
+    """
+    def report(stage: str) -> None:
+        print(stage)
+        if on_progress:
+            on_progress(stage)
+
     stem = Path(audio_path).stem
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
-    print(f"[1/5] Transcribing ({whisper_model})...")
+    report(f"[1/5] Transcribing ({whisper_model})...")
     transcript = transcribe_audio(audio_path, model_size=whisper_model, language=language)
     if keep_intermediate:
         save_transcript(transcript, str(out / f"{stem}_transcript.json"))
 
-    print("[2/5] Extracting per-segment acoustic features...")
+    report("[2/5] Extracting per-segment acoustic features...")
     acoustic_segments = extract_acoustic_features(
         audio_path,
         [{"id": s["id"], "start": s["start"], "end": s["end"], "text": s["text"]} for s in transcript["segments"]],
@@ -61,7 +73,7 @@ def run_pipeline(
     if keep_intermediate:
         save_features(acoustic_segments, str(out / f"{stem}_acoustic_features.json"))
 
-    print("[3/5] Detecting and classifying pauses...")
+    report("[3/5] Detecting and classifying pauses...")
     pauses = detect_and_classify_pauses(
         audio_path,
         transcript=transcript,
@@ -71,7 +83,7 @@ def run_pipeline(
     if keep_intermediate:
         save_pauses(pauses, str(out / f"{stem}_pauses.json"))
 
-    print("[4/5] Segmenting into sentences and scoring trailing-off...")
+    report("[4/5] Segmenting into sentences and scoring trailing-off...")
     sentences = build_sentences(
         audio_path,
         transcript,
@@ -84,13 +96,13 @@ def run_pipeline(
     if keep_intermediate:
         save_sentences(sentences, str(out / f"{stem}_sentences.json"))
 
-    print(f"[5/5] Synthesizing feedback report ({claude_model})...")
+    report(f"[5/5] Synthesizing feedback report ({claude_model})...")
     metrics_summary = build_metrics_summary(transcript, sentences, pauses, acoustic_segments)
-    report = synthesize_report(metrics_summary, model=claude_model)
+    synthesized = synthesize_report(metrics_summary, model=claude_model)
     report_path = str(out / f"{stem}_report.md")
-    save_report(report, report_path)
+    save_report(synthesized, report_path)
 
-    print(f"Done. Report: {report_path}")
+    report(f"Done. Report: {report_path}")
     return report_path
 
 

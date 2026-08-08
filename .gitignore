@@ -9,3 +9,5 @@ output/
 *.m4a
 *.flac
 .DS_Store
+backend_uploads/
+backend_output/

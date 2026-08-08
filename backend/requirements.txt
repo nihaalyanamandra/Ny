@@ -1,0 +1,11 @@
+# Backend API deps, layered on top of the core pipeline's requirements.
+# Install order matters because of the openai-whisper/setuptools issue --
+# see requirements.txt at the repo root.
+#
+#   pip install "setuptools<81" wheel
+#   pip install --no-build-isolation -r requirements.txt
+#   pip install -r backend/requirements.txt
+
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20

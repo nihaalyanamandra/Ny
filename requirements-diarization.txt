@@ -19,7 +19,24 @@
 #     pyannote/speaker-diarization-3.1 (gated model, requires accepting
 #     terms on the model page)
 #   - HF_TOKEN set as an environment variable
+#
+# Version notes (found by actually installing and running this, not just
+# resolving): pyannote.audio==3.1.1 (the version originally pinned here)
+# imports fine but CRASHES at runtime with
+# "AttributeError: `np.NaN` was removed in the NumPy 2.0 release" --
+# its own code uses the old capitalized alias, but its sub-dependencies
+# (pyannote-core, pyannote-metrics) require numpy>=2 with no upper bound,
+# so a plain install pulls in a numpy that breaks pyannote.audio itself.
+# 3.3.2 doesn't have this bug. Two more runtime-only issues (present with
+# any recent pip resolve, not version-specific choices made here):
+#   - huggingface_hub>=1.0 removed the `use_auth_token` kwarg that
+#     Pipeline.from_pretrained() still calls internally -- pin <1.0.
+#   - pyannote.audio imports matplotlib unconditionally somewhere in its
+#     pipeline code path even for headless/non-plotting use, but doesn't
+#     declare it as a dependency -- install it explicitly.
 
-pyannote.audio==3.1.1
+pyannote.audio==3.3.2
 torch==2.3.1
 torchaudio==2.3.1
+huggingface_hub<1.0
+matplotlib

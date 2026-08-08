@@ -47,6 +47,44 @@ def _safe_call(*args, **kwargs) -> float | None:
         return None
 
 
+def compute_pitch_instability(sound: parselmouth.Sound, start: float, end: float) -> float | None:
+    """Mean absolute frame-to-frame pitch change within [start, end], in
+    semitones. This is distinct from the trailing-off drop: trailing-off
+    compares two coarse halves (first-two-thirds mean vs. final-third mean)
+    to catch a directional fade, while this catches short-timescale
+    jumpiness in the F0 contour -- rapid up/down swings that can happen
+    even in an otherwise steady, non-fading sentence.
+
+    Semitones rather than Hz: an equal Hz jump is a bigger relative pitch
+    change at a low F0 than a high one, so raw Hz differences aren't
+    comparable across sentences with different average pitch. Semitones
+    (12*log2 ratio) correct for that.
+
+    Only diffs between temporally ADJACENT voiced frames are used (both
+    frame i and i+1 voiced) -- naively diffing a "voiced values only" list
+    would splice together frames separated by an unvoiced gap (e.g. a stop
+    consonant) and register that as a pitch jump, which it isn't.
+    """
+    end = min(end, sound.duration)
+    start = max(0.0, start)
+    if end - start < 0.05:
+        return None
+
+    part = sound.extract_part(from_time=start, to_time=end, preserve_times=False)
+    try:
+        pitch = part.to_pitch(pitch_floor=PITCH_FLOOR_HZ, pitch_ceiling=PITCH_CEILING_HZ)
+        f0 = pitch.selected_array["frequency"]
+        if len(f0) < 5:
+            return None
+        both_voiced = (f0[:-1] > 0) & (f0[1:] > 0)
+        if both_voiced.sum() < 4:
+            return None
+        semitone_diffs = 12 * np.abs(np.log2(f0[1:][both_voiced]) - np.log2(f0[:-1][both_voiced]))
+        return round(float(np.mean(semitone_diffs)), 4)
+    except Exception:
+        return None
+
+
 def extract_segment_features(sound: parselmouth.Sound, start: float, end: float) -> dict[str, Any]:
     """Extract pitch/intensity/jitter/shimmer for the [start, end] window of `sound`.
 

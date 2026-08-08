@@ -15,9 +15,10 @@ import re
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import parselmouth
 
-from src.acoustic_features import extract_segment_features
+from src.acoustic_features import compute_pitch_instability, extract_segment_features
 from src.audio_io import ensure_wav
 
 SENTENCE_END_RE = re.compile(r"[.!?]+$")
@@ -70,6 +71,72 @@ MIN_DURATION_FOR_TRAILING_OFF_S = 1.2
 # starting points to tune against your own recordings.
 DEFAULT_ENERGY_DROP_THRESHOLD_DB = 3.0
 DEFAULT_PITCH_DROP_THRESHOLD_PCT = 15.0
+
+# --- Composite confidence score ---
+#
+# A 1-10 per-sentence score combining four signals, each measured against
+# THIS SPEAKER'S OWN session mean/spread, not a universal target -- your
+# normal pace or vocal texture isn't a defect just because it differs from
+# someone else's. Each sub-signal is converted to a z-score against the
+# session's own distribution for that metric, then squashed to a 0-10
+# subscore (see _worse_above_mean_subscore / _deviation_subscore below),
+# and the composite is a weighted average of whichever sub-signals are
+# actually available for that sentence (e.g. short sentences skip
+# trailing-off, the very first sentence has no pause_before).
+#
+# Weights (starting points -- tune these for your own speaking style):
+#   - Trailing-off magnitude: 0.30 -- the most direct within-sentence
+#     signal that energy/confidence visibly faded before finishing.
+#   - Pre-sentence hesitation: 0.30 -- an unusually long pause before
+#     starting is a directly observable uncertainty marker, on par with
+#     trailing-off as a signal.
+#   - Mid-sentence pitch instability: 0.20 -- real but subtler than the
+#     two above: erratic F0 swings during otherwise fluent delivery are
+#     easily confounded with ordinary expressive prosody, so weighted
+#     lower.
+#   - Pacing deviation: 0.20 -- deviation from personal average pace in
+#     EITHER direction (rushed or dragging). Weighted lowest of the four
+#     since pace is affected by content difficulty as much as confidence
+#     (a genuinely hard question can slow anyone down for reasons that
+#     have nothing to do with nerves).
+CONFIDENCE_WEIGHTS = {
+    "trailing_off": 0.30,
+    "hesitation": 0.30,
+    "pitch_instability": 0.20,
+    "pacing": 0.20,
+}
+
+
+def _mean_std(values: list[float]) -> tuple[float, float]:
+    if not values:
+        return 0.0, 0.0
+    mean = float(np.mean(values))
+    std = float(np.std(values))
+    return mean, std
+
+
+def _zscore(value: float, mean: float, std: float) -> float:
+    if std < 1e-9:
+        return 0.0
+    return (value - mean) / std
+
+
+def _worse_above_mean_subscore(z: float) -> float:
+    """For metrics where higher-than-your-own-average is worse (hesitation
+    duration, trailing-off magnitude, pitch instability): z=0 (typical for
+    you) maps to 7/10, each standard deviation worse subtracts 3 points,
+    and being BELOW your own average is rewarded up toward 10 -- shorter
+    hesitation, less trailing-off, or steadier pitch than your norm is a
+    genuine positive, not just "different." Floored at 1 so one outlier
+    sentence doesn't zero out."""
+    return float(np.clip(7 - 3 * z, 1, 10))
+
+
+def _deviation_subscore(abs_z: float) -> float:
+    """For metrics where any deviation from your own average is worse in
+    either direction (pacing): z=0 maps to 10/10, deviating either faster
+    or slower than your norm subtracts 3 points per standard deviation."""
+    return float(np.clip(10 - 3 * abs_z, 1, 10))
 
 
 def words_to_sentences(
@@ -180,6 +247,25 @@ def _trailing_off_score(
     return result
 
 
+def _trailing_off_magnitude(
+    trailing_off: dict[str, Any],
+    energy_threshold_db: float,
+    pitch_threshold_pct: float,
+) -> float | None:
+    """Combines energy_drop_db and pitch_drop_pct into one continuous scalar
+    for confidence scoring, in "threshold units" -- 1.0 means the drop is
+    exactly at the configured flagging threshold, 2.0 means twice that, a
+    negative value means intensity/pitch actually rose in the final third.
+    Normalizing by each metric's own threshold first is what makes it valid
+    to average dB and a percentage together into one number.
+    """
+    energy_drop = trailing_off.get("energy_drop_db")
+    pitch_drop = trailing_off.get("pitch_drop_pct")
+    if energy_drop is None or pitch_drop is None:
+        return None
+    return (energy_drop / energy_threshold_db + pitch_drop / pitch_threshold_pct) / 2
+
+
 def _nearest_preceding_pause(sentence: dict[str, Any], pauses: list[dict[str, Any]] | None) -> dict[str, Any] | None:
     """The pause immediately before this sentence.
 
@@ -215,13 +301,16 @@ def build_sentences(
         max_duration_s=max_sentence_duration_s,
     )
 
-    output = []
+    # Pass 1: compute each sentence's raw metrics.
+    rows = []
     for sentence in sentences:
         rate = _speaking_rate(sentence)
         trailing_off = _trailing_off_score(sound, sentence, energy_threshold_db, pitch_threshold_pct)
         pause_before = _nearest_preceding_pause(sentence, pauses)
+        pitch_instability = compute_pitch_instability(sound, sentence["start"], sentence["end"])
+        trailing_off_magnitude = _trailing_off_magnitude(trailing_off, energy_threshold_db, pitch_threshold_pct)
 
-        output.append(
+        rows.append(
             {
                 "id": sentence["id"],
                 "start": sentence["start"],
@@ -234,6 +323,60 @@ def build_sentences(
                     if pause_before
                     else None
                 ),
+                "pitch_instability_semitones": pitch_instability,
+                "_trailing_off_magnitude": trailing_off_magnitude,
+            }
+        )
+
+    # Session baselines: this speaker's own mean/spread for each signal,
+    # over whichever sentences actually have that signal computed.
+    hesitation_mean, hesitation_std = _mean_std([r["pause_before"]["duration_ms"] for r in rows if r["pause_before"]])
+    trailing_off_mean, trailing_off_std = _mean_std([r["_trailing_off_magnitude"] for r in rows if r["_trailing_off_magnitude"] is not None])
+    instability_mean, instability_std = _mean_std([r["pitch_instability_semitones"] for r in rows if r["pitch_instability_semitones"] is not None])
+    wpm_mean, wpm_std = _mean_std([r["wpm"] for r in rows if r["wpm"] is not None])
+
+    # Pass 2: score each sentence against those session baselines.
+    output = []
+    for r in rows:
+        subscores: dict[str, float] = {}
+
+        if r["pause_before"] is not None:
+            z = _zscore(r["pause_before"]["duration_ms"], hesitation_mean, hesitation_std)
+            subscores["hesitation"] = _worse_above_mean_subscore(z)
+
+        if r["_trailing_off_magnitude"] is not None:
+            z = _zscore(r["_trailing_off_magnitude"], trailing_off_mean, trailing_off_std)
+            subscores["trailing_off"] = _worse_above_mean_subscore(z)
+
+        if r["pitch_instability_semitones"] is not None:
+            z = _zscore(r["pitch_instability_semitones"], instability_mean, instability_std)
+            subscores["pitch_instability"] = _worse_above_mean_subscore(z)
+
+        if r["wpm"] is not None:
+            z = _zscore(r["wpm"], wpm_mean, wpm_std)
+            subscores["pacing"] = _deviation_subscore(abs(z))
+
+        if subscores:
+            total_weight = sum(CONFIDENCE_WEIGHTS[k] for k in subscores)
+            composite = sum(subscores[k] * CONFIDENCE_WEIGHTS[k] for k in subscores) / total_weight
+            confidence_score = round(composite, 1)
+        else:
+            confidence_score = None
+
+        output.append(
+            {
+                "id": r["id"],
+                "start": r["start"],
+                "end": r["end"],
+                "text": r["text"],
+                "word_count": r["word_count"],
+                "duration_sec": r["duration_sec"],
+                "wpm": r["wpm"],
+                "trailing_off": r["trailing_off"],
+                "pause_before": r["pause_before"],
+                "pitch_instability_semitones": r["pitch_instability_semitones"],
+                "confidence_score": confidence_score,
+                "confidence_components": {k: round(v, 1) for k, v in subscores.items()},
             }
         )
     return output
@@ -286,7 +429,8 @@ def main() -> None:
     print(f"Segmented into {len(sentences)} sentences")
     for s in sentences:
         flag = " [TRAILING OFF]" if s["trailing_off"].get("trailing_off") else ""
-        print(f"  [{s['start']:.2f}-{s['end']:.2f}] {s['wpm']} wpm{flag}  {s['text']}")
+        conf = f"conf={s['confidence_score']}" if s["confidence_score"] is not None else "conf=n/a"
+        print(f"  [{s['start']:.2f}-{s['end']:.2f}] {s['wpm']} wpm  {conf}{flag}  {s['text']}")
     print(f"Wrote {output_path}")
 
 

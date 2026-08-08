@@ -21,6 +21,8 @@ import numpy as np
 import parselmouth
 from parselmouth.praat import call
 
+from src.audio_io import ensure_wav
+
 # Praat pitch floor/ceiling for typical adult speech. Widening this too much
 # (esp. the floor) causes octave errors on breathy/quiet segment tails.
 PITCH_FLOOR_HZ = 75
@@ -142,7 +144,7 @@ def extract_acoustic_features(audio_path: str, segments: list[dict[str, Any]]) -
     """`segments` is a list of dicts with at least "start" and "end" (extra
     keys like "id"/"text" are passed through in the output).
     """
-    sound = parselmouth.Sound(audio_path)
+    sound = parselmouth.Sound(ensure_wav(audio_path))
     results = []
     for seg in segments:
         start, end = seg["start"], seg["end"]

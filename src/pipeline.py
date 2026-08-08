@@ -20,6 +20,8 @@ from src.pause_detection import detect_and_classify_pauses, save_pauses
 from src.segment import (
     DEFAULT_ENERGY_DROP_THRESHOLD_DB,
     DEFAULT_PITCH_DROP_THRESHOLD_PCT,
+    MAX_SENTENCE_DURATION_S,
+    SENTENCE_PAUSE_BOUNDARY_S,
     build_sentences,
     save_sentences,
 )
@@ -35,6 +37,8 @@ def run_pipeline(
     vad_aggressiveness: int = 2,
     energy_threshold_db: float = DEFAULT_ENERGY_DROP_THRESHOLD_DB,
     pitch_threshold_pct: float = DEFAULT_PITCH_DROP_THRESHOLD_PCT,
+    sentence_pause_boundary_s: float = SENTENCE_PAUSE_BOUNDARY_S,
+    max_sentence_duration_s: float = MAX_SENTENCE_DURATION_S,
     claude_model: str = DEFAULT_MODEL,
     keep_intermediate: bool = True,
     output_dir: str = "output",
@@ -74,6 +78,8 @@ def run_pipeline(
         pauses=pauses,
         energy_threshold_db=energy_threshold_db,
         pitch_threshold_pct=pitch_threshold_pct,
+        sentence_pause_boundary_s=sentence_pause_boundary_s,
+        max_sentence_duration_s=max_sentence_duration_s,
     )
     if keep_intermediate:
         save_sentences(sentences, str(out / f"{stem}_sentences.json"))
@@ -99,6 +105,8 @@ def main() -> None:
     parser.add_argument("--vad-aggressiveness", type=int, default=2, choices=[0, 1, 2, 3])
     parser.add_argument("--energy-threshold-db", type=float, default=DEFAULT_ENERGY_DROP_THRESHOLD_DB)
     parser.add_argument("--pitch-threshold-pct", type=float, default=DEFAULT_PITCH_DROP_THRESHOLD_PCT)
+    parser.add_argument("--sentence-pause-boundary-s", type=float, default=SENTENCE_PAUSE_BOUNDARY_S)
+    parser.add_argument("--max-sentence-duration-s", type=float, default=MAX_SENTENCE_DURATION_S)
     parser.add_argument("--claude-model", default=os.environ.get("ANTHROPIC_MODEL", DEFAULT_MODEL))
     parser.add_argument("--no-intermediate", action="store_true", help="Don't write intermediate stage JSON files to output/")
     parser.add_argument("--output-dir", default="output")
@@ -115,6 +123,8 @@ def main() -> None:
         vad_aggressiveness=args.vad_aggressiveness,
         energy_threshold_db=args.energy_threshold_db,
         pitch_threshold_pct=args.pitch_threshold_pct,
+        sentence_pause_boundary_s=args.sentence_pause_boundary_s,
+        max_sentence_duration_s=args.max_sentence_duration_s,
         claude_model=args.claude_model,
         keep_intermediate=not args.no_intermediate,
         output_dir=args.output_dir,

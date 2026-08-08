@@ -139,10 +139,14 @@ def build_metrics_summary(
 
 
 def build_user_message(metrics_summary: dict[str, Any]) -> str:
+    # Compact (no indent) rather than pretty-printed: on a ~25min recording
+    # this payload is already ~100+ sentences plus the full pause list, and
+    # indent=2 roughly doubles its size in tokens for a human-readable
+    # layout Claude doesn't need.
     return (
         "Here is the transcript and acoustic metrics for a practice "
         "recording. Analyze it and write the delivery feedback report.\n\n"
-        "```json\n" + json.dumps(metrics_summary, indent=2) + "\n```"
+        "```json\n" + json.dumps(metrics_summary, separators=(",", ":")) + "\n```"
     )
 
 

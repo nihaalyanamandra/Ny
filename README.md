@@ -44,6 +44,23 @@ file's `--help` for options.
   sentence boundaries by containment/ordering rather than tight timestamp
   alignment, because Whisper's word timestamps and webrtcvad's detected
   speech boundaries can disagree by several hundred ms on the same audio.
+- **Sentence boundaries** (`src/segment.py`) do NOT rely on punctuation
+  alone. On a real 24-minute two-person interview recording, Whisper
+  emitted terminal punctuation on 2 of 3926 words — punctuation-only
+  splitting produced "sentences" up to 20 minutes long. A boundary is now:
+  terminal punctuation, OR a gap between words >= 0.6s
+  (`--sentence-pause-boundary-s`), OR a hard 15s cap
+  (`--max-sentence-duration-s`) so a long stretch of continuous talking
+  without a real pause still gets chunked into something the trailing-off
+  score can say something meaningful about. A single word's timestamp is
+  also clamped to 3s max duration -- Whisper's word alignment occasionally
+  assigns one word a wildly long span (observed: 22 seconds on one "let's")
+  which would otherwise corrupt that sentence's end boundary and WPM.
+- Non-WAV input (m4a, mp3, etc.) is transcoded to WAV via ffmpeg
+  (`src/audio_io.py`) before parselmouth/webrtcvad touch it — parselmouth
+  can only read WAV/AIFF/FLAC-family files directly. Whisper itself
+  handles any format on its own via its internal ffmpeg call, so
+  `transcribe.py` doesn't need this.
 - Diarization (pyannote) is intentionally left out of the default pipeline
   — see the Setup section below.
 
@@ -94,12 +111,19 @@ numpy pin).
 - [x] Stage 6: synthesize.py — **model ID in `DEFAULT_MODEL` is a guess, verify it against Anthropic's current model list** (override with `--model`/`--claude-model` or `ANTHROPIC_MODEL`)
 - [x] Stage 7: pipeline.py
 
-All stages were smoke-tested end-to-end on a synthetic recording (espeak-ng
-TTS + engineered pauses/fades) in the dev sandbox — transcription, pitch/
-intensity/jitter/shimmer extraction, pause classification, and trailing-off
-scoring all ran and produced sane numbers; a couple of real bugs (a Praat
-silence-floor artifact corrupting intensity stats, a naive dB-averaging
-bug, and a pause-to-sentence attribution bug) were caught and fixed this
-way. **Not yet tested**: the Stage 6/7 Claude API call itself (no
-`ANTHROPIC_API_KEY` available in the sandbox) or any real human recording.
-Please test both on your end before trusting the output.
+All stages were tested end-to-end both on a synthetic recording (espeak-ng
+TTS + engineered pauses/fades) and on a real ~24-minute two-person mock
+interview recording (m4a) in the dev sandbox — transcription, pitch/
+intensity/jitter/shimmer extraction, pause classification, and sentence
+segmentation with trailing-off scoring all ran and produced sane-looking
+numbers on real speech. Several real bugs were caught and fixed this way:
+a Praat silence-floor artifact corrupting intensity stats, a naive
+dB-averaging bug, a pause-to-sentence attribution bug, m4a/non-WAV input
+crashing parselmouth, punctuation-only sentence splitting producing
+20-minute "sentences" on natural conversational speech, and a Whisper
+word-timestamp outlier (one word given a 22-second span) corrupting a
+sentence boundary. **Not yet tested**: the Stage 6/7 Claude API call
+itself (no `ANTHROPIC_API_KEY` available in the sandbox). Please test that
+part on your end before trusting the final report output — everything
+upstream of it (transcript, metrics, sentence segmentation) has now been
+validated against a real recording.

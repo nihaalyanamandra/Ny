@@ -18,8 +18,34 @@ from typing import Any
 import parselmouth
 
 from src.acoustic_features import extract_segment_features
+from src.audio_io import ensure_wav
 
 SENTENCE_END_RE = re.compile(r"[.!?]+$")
+
+# Splitting purely on terminal punctuation turned out to badly undercount
+# sentence boundaries on real conversational/interview audio: in local
+# testing on a 24-minute two-person interview recording, Whisper emitted
+# terminal punctuation on only 2 of 3926 words, producing "sentences" up to
+# ~20 minutes long -- useless for per-utterance trailing-off/WPM stats. So
+# a sentence boundary is any of: terminal punctuation, OR a gap between
+# consecutive words at least this long (a real pause, not just an
+# articulation gap), OR hitting the max duration below (a hard cap so a
+# long stretch of continuous fast talking without any real pause still
+# gets chunked into something a trailing-off score can say something
+# meaningful about).
+SENTENCE_PAUSE_BOUNDARY_S = 0.6
+MAX_SENTENCE_DURATION_S = 15.0
+
+# Whisper's word-level timestamps come from a DTW alignment, not a forced
+# aligner, and it occasionally produces a wildly wrong "end" for a single
+# word -- e.g. in local testing on real conversational audio, one instance
+# of "let's" got a 22-SECOND duration (spanning into an unrelated later
+# utterance) where every neighboring word was ~0.2-0.5s. Left uncapped,
+# that one bad timestamp corrupts the sentence's end boundary, WPM, and
+# trailing-off window. No real spoken word takes this long even said
+# slowly and deliberately, so any word "ending" further than this past its
+# start is treated as a timestamp artifact and clipped.
+MAX_SINGLE_WORD_DURATION_S = 3.0
 
 # A sentence needs enough duration for "first two-thirds" and "final third"
 # to each contain multiple pitch/intensity frames; below this, a third of
@@ -46,14 +72,21 @@ DEFAULT_ENERGY_DROP_THRESHOLD_DB = 3.0
 DEFAULT_PITCH_DROP_THRESHOLD_PCT = 15.0
 
 
-def words_to_sentences(segments: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Flattens Whisper segments' words and regroups them into sentences on
-    terminal punctuation (. ! ?). Falls back to Whisper's own segment
-    boundary if a segment ends without terminal punctuation (Whisper
-    sometimes omits it, e.g. on a trailing filler word)."""
+def words_to_sentences(
+    segments: list[dict[str, Any]],
+    pause_boundary_s: float = SENTENCE_PAUSE_BOUNDARY_S,
+    max_duration_s: float = MAX_SENTENCE_DURATION_S,
+) -> list[dict[str, Any]]:
+    """Flattens Whisper segments' words and regroups them into sentence-like
+    chunks. A chunk ends when the CURRENT word has terminal punctuation, OR
+    the NEXT word starts after a gap >= pause_boundary_s, OR the chunk has
+    already run for >= max_duration_s (see the rationale above
+    SENTENCE_PAUSE_BOUNDARY_S)."""
     all_words = []
     for seg in segments:
         for w in seg.get("words", []):
+            if w["end"] - w["start"] > MAX_SINGLE_WORD_DURATION_S:
+                w = {**w, "end": w["start"] + MAX_SINGLE_WORD_DURATION_S}
             all_words.append(w)
 
     sentences = []
@@ -61,7 +94,13 @@ def words_to_sentences(segments: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for i, w in enumerate(all_words):
         current.append(w)
         is_last_word = i == len(all_words) - 1
-        if SENTENCE_END_RE.search(w["word"]) or is_last_word:
+
+        ends_on_punctuation = bool(SENTENCE_END_RE.search(w["word"]))
+        next_word_gap = (all_words[i + 1]["start"] - w["end"]) if not is_last_word else None
+        ends_on_pause = next_word_gap is not None and next_word_gap >= pause_boundary_s
+        ends_on_max_duration = (w["end"] - current[0]["start"]) >= max_duration_s
+
+        if ends_on_punctuation or ends_on_pause or ends_on_max_duration or is_last_word:
             sentences.append(current)
             current = []
 
@@ -166,9 +205,15 @@ def build_sentences(
     pauses: list[dict[str, Any]] | None = None,
     energy_threshold_db: float = DEFAULT_ENERGY_DROP_THRESHOLD_DB,
     pitch_threshold_pct: float = DEFAULT_PITCH_DROP_THRESHOLD_PCT,
+    sentence_pause_boundary_s: float = SENTENCE_PAUSE_BOUNDARY_S,
+    max_sentence_duration_s: float = MAX_SENTENCE_DURATION_S,
 ) -> list[dict[str, Any]]:
-    sound = parselmouth.Sound(audio_path)
-    sentences = words_to_sentences(transcript["segments"])
+    sound = parselmouth.Sound(ensure_wav(audio_path))
+    sentences = words_to_sentences(
+        transcript["segments"],
+        pause_boundary_s=sentence_pause_boundary_s,
+        max_duration_s=max_sentence_duration_s,
+    )
 
     output = []
     for sentence in sentences:
@@ -212,6 +257,8 @@ def main() -> None:
     parser.add_argument("--pauses", default=None, help="Path to pauses JSON (from src.pause_detection), to attach pause-before-sentence info")
     parser.add_argument("--energy-threshold-db", type=float, default=DEFAULT_ENERGY_DROP_THRESHOLD_DB)
     parser.add_argument("--pitch-threshold-pct", type=float, default=DEFAULT_PITCH_DROP_THRESHOLD_PCT)
+    parser.add_argument("--sentence-pause-boundary-s", type=float, default=SENTENCE_PAUSE_BOUNDARY_S, help="Gap between words treated as a sentence boundary. Default: 0.6s")
+    parser.add_argument("--max-sentence-duration-s", type=float, default=MAX_SENTENCE_DURATION_S, help="Hard cap on sentence duration even without punctuation/pause. Default: 15s")
     parser.add_argument("--output", default=None, help="Output JSON path. Default: output/<audio-stem>_sentences.json")
     args = parser.parse_args()
 
@@ -231,6 +278,8 @@ def main() -> None:
         pauses=pauses,
         energy_threshold_db=args.energy_threshold_db,
         pitch_threshold_pct=args.pitch_threshold_pct,
+        sentence_pause_boundary_s=args.sentence_pause_boundary_s,
+        max_sentence_duration_s=args.max_sentence_duration_s,
     )
     save_sentences(sentences, output_path)
 

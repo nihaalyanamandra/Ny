@@ -16,6 +16,8 @@ import librosa
 import numpy as np
 import webrtcvad
 
+from src.audio_io import ensure_wav
+
 VAD_SAMPLE_RATE = 16000  # webrtcvad only accepts 8000/16000/32000/48000 Hz
 VAD_FRAME_MS = 30  # webrtcvad only accepts 10/20/30 ms frames
 
@@ -53,7 +55,7 @@ def _frame_generator(pcm: bytes, sample_rate: int, frame_ms: int):
 
 
 def _load_pcm16(audio_path: str, sample_rate: int = VAD_SAMPLE_RATE) -> bytes:
-    y, _ = librosa.load(audio_path, sr=sample_rate, mono=True)
+    y, _ = librosa.load(ensure_wav(audio_path), sr=sample_rate, mono=True)
     y = np.clip(y, -1.0, 1.0)
     pcm16 = (y * 32767).astype(np.int16)
     return pcm16.tobytes()
@@ -103,13 +105,12 @@ def detect_pauses(
     return pauses
 
 
-def _sentence_boundaries_from_transcript(transcript: dict[str, Any]) -> tuple[list[float], float, float]:
-    """Returns (list of each sentence-segment's start time, first word start, last word end)."""
+def _recording_word_bounds(transcript: dict[str, Any]) -> tuple[float | None, float | None]:
+    """Returns (first word start, last word end) across the whole transcript."""
     segments = transcript.get("segments", [])
-    starts = [seg["start"] for seg in segments if seg.get("words") or seg.get("text")]
     first_word_start = segments[0]["start"] if segments else None
     last_word_end = segments[-1]["end"] if segments else None
-    return starts, first_word_start, last_word_end
+    return first_word_start, last_word_end
 
 
 def classify_pauses(pauses: list[dict[str, Any]], transcript: dict[str, Any] | None) -> list[dict[str, Any]]:
@@ -124,7 +125,7 @@ def classify_pauses(pauses: list[dict[str, Any]], transcript: dict[str, Any] | N
             p["type"] = "unclassified"
         return pauses
 
-    _, first_word_start, last_word_end = _sentence_boundaries_from_transcript(transcript)
+    first_word_start, last_word_end = _recording_word_bounds(transcript)
 
     # Build a flat list of (word_start, word_end) across all segments to
     # detect "inside a sentence" gaps.

@@ -163,7 +163,15 @@ def synthesize_report(
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": build_user_message(metrics_summary)}],
     )
-    return "".join(block.text for block in message.content if block.type == "text")
+    text = "".join(block.text for block in message.content if block.type == "text")
+    # Observed once in testing: a call can come back with stop_reason
+    # "end_turn" and no exception, but zero text content -- silently
+    # writing that to disk as "the report" is worse than failing loudly,
+    # since it looks like success. Surface it as an error instead so the
+    # caller knows to retry rather than getting an empty file.
+    if not text.strip():
+        raise RuntimeError(f"Claude returned an empty response (stop_reason={message.stop_reason!r}, usage={message.usage!r})")
+    return text
 
 
 def save_report(report: str, output_path: str) -> None:

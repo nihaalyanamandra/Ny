@@ -1,9 +1,8 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
 import { Job, getJob, submitJob } from "@/lib/api";
-import ConfidenceTimeline from "@/components/ConfidenceTimeline";
+import ResultsView from "@/components/ResultsView";
 
 type Phase = "idle" | "uploading" | "processing" | "done" | "error";
 
@@ -32,7 +31,16 @@ export default function Home() {
   const [whisperModel, setWhisperModel] = useState<string>("base");
   const [job, setJob] = useState<Job | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const copyShareLink = async () => {
+    if (!job) return;
+    const shareUrl = `${window.location.origin}/results/${job.job_id}`;
+    await navigator.clipboard.writeText(shareUrl);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  };
 
   const poll = useCallback((jobId: string) => {
     const tick = async () => {
@@ -174,17 +182,20 @@ export default function Home() {
 
         {phase === "done" && job?.result && (
           <div className="space-y-8">
-            {job.result.sentences && job.result.sentences.length > 0 && (
-              <div className="rounded-xl border border-neutral-800 bg-neutral-950/50 p-6">
-                <ConfidenceTimeline sentences={job.result.sentences} />
-              </div>
-            )}
-
-            <div className="rounded-xl border border-neutral-800 bg-neutral-950/50 p-6 sm:p-8">
-              <div className="prose-report">
-                <ReactMarkdown>{job.result.report_markdown}</ReactMarkdown>
-              </div>
+            <div className="rounded-xl border border-neutral-800 bg-neutral-950/50 p-4 flex items-center justify-between gap-3">
+              <p className="text-xs text-neutral-500">
+                Share this report (e.g. with an interviewer) via a link &mdash;
+                no account needed to view it.
+              </p>
+              <button
+                onClick={copyShareLink}
+                className="shrink-0 rounded-lg border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-900"
+              >
+                {linkCopied ? "Copied!" : "Copy link"}
+              </button>
             </div>
+
+            <ResultsView result={job.result} />
 
             <div className="text-center">
               <button

@@ -7,22 +7,46 @@ Requires ANTHROPIC_API_KEY set in the environment (same as the CLI
 pipeline). CORS origin for the deployed frontend is set via
 FRONTEND_ORIGIN (comma-separated list allowed); defaults to "*" for local
 development -- lock this down before a real deployment.
-"""
-from __future__ import annotations
 
+This is a public, no-login tool (see jobs.py's module docstring for the
+retention/privacy implications of that). Since there's no account to
+attach a usage quota to, cost is bounded by a per-IP rate limit on job
+submission instead -- RATE_LIMIT (default "3/day"), a slowapi limit-string:
+https://limits.readthedocs.io/en/stable/quickstart.html#rate-limit-string-notation
+An IP-based limit is a blunt instrument (shared IPs, e.g. behind a
+university/office NAT, share one quota; a determined abuser can rotate
+IPs) but it's proportionate to what this is -- revisit if it's a problem
+in practice, not preemptively.
+"""
 import os
 import uuid
+from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
-from .jobs import DEFAULT_MODEL, UPLOADS_DIR, create_job, get_job
+from .jobs import DEFAULT_MODEL, UPLOADS_DIR, create_job, get_job, start_cleanup_thread
 
 ALLOWED_EXTENSIONS = {".wav", ".mp3", ".m4a", ".flac", ".ogg", ".aac", ".webm"}
 MAX_UPLOAD_BYTES = 500 * 1024 * 1024  # 500MB -- generous for a long practice recording
+RATE_LIMIT = os.environ.get("RATE_LIMIT", "3/day")
 
-app = FastAPI(title="Speech Delivery Analytics API")
+limiter = Limiter(key_func=get_remote_address)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    start_cleanup_thread()
+    yield
+
+
+app = FastAPI(title="Speech Delivery Analytics API", lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 _frontend_origins = os.environ.get("FRONTEND_ORIGIN", "*")
 app.add_middleware(
@@ -39,7 +63,9 @@ def health() -> dict:
 
 
 @app.post("/jobs")
+@limiter.limit(RATE_LIMIT)
 async def submit_job(
+    request: Request,
     file: UploadFile = File(...),
     whisper_model: str = Form("base"),
     claude_model: str = Form(DEFAULT_MODEL),
@@ -73,7 +99,7 @@ async def submit_job(
 def job_status(job_id: str) -> dict:
     job = get_job(job_id)
     if job is None:
-        raise HTTPException(status_code=404, detail="Job not found")
+        raise HTTPException(status_code=404, detail="Job not found or expired")
     # Don't leak the internal traceback to clients; it's still logged server-side.
     job.pop("traceback", None)
     return job

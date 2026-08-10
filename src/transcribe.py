@@ -7,10 +7,25 @@ from __future__ import annotations
 
 import argparse
 import json
+import threading
 from pathlib import Path
 from typing import Any
 
 import whisper
+
+# openai-whisper's word_timestamps=True path (whisper/timing.py) registers
+# PyTorch forward hooks that collect cross-attention outputs into a
+# function-local list during DTW alignment. That mechanism is NOT
+# thread-safe: two transcriptions running concurrently in the same process
+# (e.g. two backend API jobs processed by different threads at once) race
+# on that hook state and one of them crashes with a `TypeError: 'NoneType'
+# object is not subscriptable` deep in whisper/timing.py -- reproduced
+# directly with two threads calling transcribe_audio() on the same file at
+# the same time, no API layer involved. Serializing transcription with this
+# lock is the targeted fix: it's specifically Whisper's own alignment hooks
+# that are unsafe, not the rest of the pipeline (Praat analysis, VAD, the
+# Claude calls), so only this call needs to be process-wide single-flight.
+_TRANSCRIBE_LOCK = threading.Lock()
 
 
 def transcribe_audio(
@@ -44,12 +59,13 @@ def transcribe_audio(
         }
     """
     model = whisper.load_model(model_size)
-    result = model.transcribe(
-        audio_path,
-        language=language,
-        word_timestamps=True,
-        verbose=False,
-    )
+    with _TRANSCRIBE_LOCK:
+        result = model.transcribe(
+            audio_path,
+            language=language,
+            word_timestamps=True,
+            verbose=False,
+        )
 
     segments = []
     for seg in result["segments"]:

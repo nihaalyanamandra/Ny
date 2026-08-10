@@ -37,17 +37,28 @@ Set these environment variables on whatever host you use:
   `https://your-app.vercel.app`), so CORS only allows your frontend.
   Defaults to `*` (any origin) for local dev; lock this down for a real
   deployment.
+- `RATE_LIMIT` -- this is a public, no-login tool, so cost is bounded by a
+  per-IP limit on job submission instead of per-account quotas. A slowapi
+  limit string (e.g. `3/day`, `10/hour`); defaults to `3/day`.
+- `JOB_TTL_DAYS` -- how long a completed job (and its shareable
+  `/results/{job_id}` link) stays retrievable before an hourly sweep
+  deletes it. Defaults to `30`.
 
 Resource notes:
-- CPU-only Whisper `base` transcription runs a few times faster than
-  real-time; budget accordingly for concurrent jobs (this is single-process
-  in-memory, so jobs run sequentially per instance, not in parallel, unless
-  you scale to multiple instances -- which the in-memory job store doesn't
-  support, see `app/jobs.py`).
-- Uploaded audio and per-job output accumulate in `backend_uploads/` and
-  `backend_output/` on the container's disk with no automatic cleanup yet
-  -- fine for occasional personal use, but add a cleanup job or persistent
-  volume policy before leaving this running unattended for a long time.
+- Whisper transcription specifically is serialized process-wide behind a
+  lock (see `src/transcribe.py`) -- openai-whisper's word-timestamp
+  alignment code isn't thread-safe and crashes intermittently if two
+  transcriptions run at once in the same process (found and fixed by
+  testing concurrent requests, not theoretical). Everything else (Praat
+  analysis, VAD, the Claude calls) still runs concurrently across jobs;
+  transcription is just a one-at-a-time bottleneck within a single
+  instance. Scale to multiple instances if that bottleneck matters at your
+  traffic level -- which the in-memory job store doesn't support as-is,
+  see `app/jobs.py`.
+- The uploaded audio file is deleted as soon as its job finishes (success
+  or failure) -- see `app/jobs.py`'s module docstring for why, given this
+  is a public tool with no accounts. Per-job output (the report) persists
+  for `JOB_TTL_DAYS` and is swept automatically after that.
 - Diarization (`src/diarize.py`) is NOT wired into this API yet -- it needs
   its own separate environment (see the root README) and currently only
   runs as a standalone script.

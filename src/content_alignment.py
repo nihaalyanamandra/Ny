@@ -193,6 +193,15 @@ def assess_alignment(pair: dict[str, Any], client: Anthropic, model: str) -> dic
     message = client.messages.create(
         model=model,
         max_tokens=1024,
+        # See synthesize.py's synthesize_report for why this matters here
+        # especially: max_tokens=1024 is small, so if thinking were left
+        # enabled it could plausibly consume the whole budget and leave
+        # nothing for the JSON response -- which the except clause below
+        # would silently turn into a fake "unknown" alignment verdict for
+        # every single pair, not a loud failure. That's a worse outcome
+        # than synthesize_report's empty-string case, since it looks like
+        # a real (if unhelpful) result instead of an obvious error.
+        thinking={"type": "disabled"},
         system=ALIGNMENT_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_message}],
     )

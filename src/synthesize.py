@@ -72,6 +72,15 @@ confidence -- not on the content of the answers.
 {METRIC_GLOSSARY}
 
 Guidelines for your feedback:
+- Open with a short "Voice Summary" section (3-5 sentences): characterize \
+how the interviewee actually SOUNDED across the whole recording -- their \
+overall energy, tone, pacing character, and confidence -- as if you're \
+describing their vocal presence to someone who hasn't listened to it. \
+Base this on the aggregate patterns in the data (average pacing vs. its \
+spread, how much hesitation there was, how often trailing-off or \
+instability showed up, where their steadiest moments were), not a restatement \
+of the detailed findings that follow -- this is the overall impression, \
+they're the specifics.
 - Be specific. Reference exact sentences (quote them) and their timestamps.
   Say things like "your energy dropped noticeably in the final third of \
 your answer about the Ellipsis Health project (9.7s-15.6s), where \
@@ -89,7 +98,7 @@ criticism.
 - Keep it practical: 3-5 concrete, prioritized things to work on, each \
 tied to specific evidence from this recording.
 
-Write the report in markdown with clear sections."""
+Write the report in markdown with clear sections, Voice Summary first."""
 
 
 def _load_json(path: str) -> Any:
@@ -160,12 +169,21 @@ def synthesize_report(
     message = client.messages.create(
         model=model,
         max_tokens=max_tokens,
+        # This model uses extended thinking by default, and thinking
+        # tokens count against max_tokens -- root-caused via testing: a
+        # call came back with stop_reason "max_tokens" and 8191 of an
+        # 8192-token budget spent on thinking, leaving none for the actual
+        # report text (empty response, but no exception). Report-writing
+        # from already-computed metrics doesn't need extended reasoning,
+        # so disable it outright rather than just raising max_tokens and
+        # hoping thinking doesn't eat the larger budget too.
+        thinking={"type": "disabled"},
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": build_user_message(metrics_summary)}],
     )
     text = "".join(block.text for block in message.content if block.type == "text")
-    # Observed once in testing: a call can come back with stop_reason
-    # "end_turn" and no exception, but zero text content -- silently
+    # Belt-and-suspenders: even with thinking disabled, a response could
+    # theoretically still come back empty for some other reason. Silently
     # writing that to disk as "the report" is worse than failing loudly,
     # since it looks like success. Surface it as an error instead so the
     # caller knows to retry rather than getting an empty file.
@@ -238,9 +256,16 @@ delivered, say so plainly and briefly rather than padding it.
 - The overall summary and top 3 priority actions should synthesize \
 patterns ACROSS answers (recurring topics, recurring failure modes), not \
 just restate the strongest single answer.
+- voice_summary is distinct from session_summary: it's a 3-5 sentence \
+characterization of how the interviewee actually SOUNDED overall -- \
+energy, tone, pacing character, confidence -- as if describing their \
+vocal presence to someone who hasn't heard it. session_summary covers \
+patterns across answers (content + delivery); voice_summary is the \
+aggregate vocal impression, not a repeat of the per-answer detail.
 
 Respond with ONLY a JSON object, no other text, matching this shape:
 {{
+  "voice_summary": "<3-5 sentences, overall vocal impression across the session>",
   "session_summary": "<2-4 sentences, patterns across the whole session>",
   "top_priority_actions": ["<action 1>", "<action 2>", "<action 3>"],
   "answers": [
@@ -355,6 +380,7 @@ def build_structured_report(
     message = client.messages.create(
         model=model,
         max_tokens=max_tokens,
+        thinking={"type": "disabled"},  # see synthesize_report's comment on why
         system=STRUCTURED_REPORT_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_message}],
     )
@@ -374,6 +400,11 @@ def render_report_markdown(structured_report: dict[str, Any]) -> str:
     two output formats can't drift from each other -- Claude produces one
     source of truth (the JSON), this just formats it."""
     lines = ["# Delivery Feedback Report", ""]
+    lines.append("## Voice Summary")
+    lines.append("")
+    lines.append(structured_report.get("voice_summary", ""))
+    lines.append("")
+
     lines.append("## Session Summary")
     lines.append("")
     lines.append(structured_report.get("session_summary", ""))

@@ -381,7 +381,17 @@ def build_answer_bundles(
 def build_structured_report(
     answer_bundles: list[dict[str, Any]],
     model: str = DEFAULT_MODEL,
-    max_tokens: int = 8192,
+    # This scales with the number of Q&A pairs (each answer gets a full
+    # narrative writeup). Found via a real 26-answer recording that this
+    # got cut off (stop_reason="max_tokens", a valid but truncated JSON
+    # prefix -- distinct from the thinking-token bug above, this was
+    # genuinely not enough room). 16000 covers that case with headroom.
+    # The non-streaming API call has its own ceiling: requests targeting
+    # more than ~21K output tokens are rejected and require streaming
+    # ("may take longer than 10 minutes"), so this can't just be raised
+    # arbitrarily for an extremely long interview -- that would need
+    # streaming support, not implemented here.
+    max_tokens: int = 16000,
     api_key: str | None = None,
 ) -> dict[str, Any]:
     client = Anthropic(api_key=api_key) if api_key else Anthropic()
@@ -472,7 +482,7 @@ def synthesize_full_report(
     content_alignment: list[dict[str, Any]] | None = None,
     nervous_energy: list[dict[str, Any]] | None = None,
     model: str = DEFAULT_MODEL,
-    max_tokens: int = 8192,
+    max_tokens: int = 16000,
 ) -> dict[str, Any]:
     """Top-level entry point. Returns {"markdown": str, "structured": dict | None}.
 
@@ -503,7 +513,7 @@ def main() -> None:
     parser.add_argument("--content-alignment", default=None, help="Optional path to content alignment JSON (from src.content_alignment) -- enables the per-answer report")
     parser.add_argument("--nervous-energy", default=None, help="Optional path to nervous energy JSON (from src.nervous_energy)")
     parser.add_argument("--model", default=os.environ.get("ANTHROPIC_MODEL", DEFAULT_MODEL))
-    parser.add_argument("--max-tokens", type=int, default=8192)
+    parser.add_argument("--max-tokens", type=int, default=16000)
     parser.add_argument("--output", default=None, help="Output markdown path. Default: output/<stem>_report.md")
     parser.add_argument("--output-json", default=None, help="Optional output path for the structured JSON report (only produced in per-answer mode)")
     args = parser.parse_args()

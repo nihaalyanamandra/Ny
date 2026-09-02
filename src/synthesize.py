@@ -101,6 +101,20 @@ tied to specific evidence from this recording.
 Write the report in markdown with clear sections, Voice Summary first."""
 
 
+def _strip_markdown_fence(text: str) -> str:
+    """Strips a ```json ... ``` or ``` ... ``` wrapper if present. Despite
+    the system prompt saying to respond with ONLY a JSON object, the model
+    sometimes wraps its response in a markdown code fence anyway (observed
+    in testing on content_alignment.py's per-pair calls; the same failure
+    mode applies here, so guard against it too)."""
+    text = text.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+        if text.rstrip().endswith("```"):
+            text = text.rstrip()[:-3]
+    return text.strip()
+
+
 def _load_json(path: str) -> Any:
     with open(path) as f:
         return json.load(f)
@@ -385,7 +399,7 @@ def build_structured_report(
         messages=[{"role": "user", "content": user_message}],
     )
     raw_text = "".join(block.text for block in message.content if block.type == "text")
-    return json.loads(raw_text)
+    return json.loads(_strip_markdown_fence(raw_text))
 
 
 def _fmt_time(seconds: float | None) -> str:

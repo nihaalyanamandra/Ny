@@ -186,6 +186,21 @@ Respond with ONLY a JSON object, no other text, matching this shape:
 }"""
 
 
+def _strip_markdown_fence(text: str) -> str:
+    """Strips a ```json ... ``` or ``` ... ``` wrapper if present. Despite
+    the system prompt saying "ONLY a JSON object, no other text," the model
+    sometimes wraps its response in a markdown code fence anyway -- observed
+    in testing on 6 of 26 real pairs, which without this would all silently
+    fall back to a fake "unknown" alignment verdict via the except clause
+    below rather than actually parsing."""
+    text = text.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+        if text.rstrip().endswith("```"):
+            text = text.rstrip()[:-3]
+    return text.strip()
+
+
 def assess_alignment(pair: dict[str, Any], client: Anthropic, model: str) -> dict[str, Any]:
     question = pair["question_text"] or "(no preceding interviewer question captured -- likely the recording's opening or a continuation)"
     user_message = f"INTERVIEWER: {question}\n\nCANDIDATE'S ANSWER: {pair['answer_text']}"
@@ -207,7 +222,7 @@ def assess_alignment(pair: dict[str, Any], client: Anthropic, model: str) -> dic
     )
     raw_text = "".join(block.text for block in message.content if block.type == "text")
     try:
-        parsed = json.loads(raw_text)
+        parsed = json.loads(_strip_markdown_fence(raw_text))
     except json.JSONDecodeError:
         parsed = {"implicit_ask": None, "alignment": "unknown", "gap_description": raw_text, "strong_answer_would_have": None}
 
